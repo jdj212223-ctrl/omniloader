@@ -47,7 +47,7 @@ Already have NeoForge 1.21.1? You can skip the installer: just put `omniloader.j
 | Mods bundled inside Fabric mods | ✅ Unpacked and loaded too |
 | Fabric "access wideners" | ✅ Converted to NeoForge's version (access transformers) |
 | Mods asking "is mod X installed?" | ✅ Sees Fabric, Quilt *and* NeoForge mods |
-| Fabric mods that need **Fabric API** | ❌ Not yet. Omniloader switches them off and tells you, instead of crashing |
+| Fabric mods that need **Fabric API** | 🟡 Started. The most-used parts work (see below). Omniloader checks every Fabric API piece a mod uses: if all of them exist, the mod runs; if not, it's switched off with a message naming what's missing, instead of crashing |
 | **Forge** mods (the old Forge, not NeoForge) | ❌ Not yet. They're spotted and named in the log |
 | Minecraft versions other than 1.21.1 | ❌ Not yet |
 
@@ -61,7 +61,13 @@ All of these were run in a real game on an Apple Silicon Mac:
 - **Krypton** (Fabric, networking): starts, loads its bundled native library for Apple Silicon,
   and its access widener is converted.
 - **FerriteCore** (Fabric, memory saver): all 11 of its mixin sets load with zero errors.
-- **AppleSkin** (NeoForge): loads alongside all of the above.
+- **Chunky** (Fabric + Fabric API, world pre-generator): its `/chunky` commands work and it
+  generated 81 chunks, using Omniloader's Fabric API commands and server events.
+- **Clumps** (Fabric + Fabric API): 20 XP orbs of different sizes merged into one, which only Clumps does.
+- **Dynamic FPS** (Fabric + Fabric API, client): runs and reacts when the window loses focus.
+  This mod writes Minecraft names straight into its mixins, which Omniloader also translates.
+- **Nature's Compass** (needs Fabric API networking): switched off with a clear message, no crash.
+- **AppleSkin** (NeoForge): loads alongside all of the above, 12 mods in total.
 - The installer: Minecraft Launcher profile, Prism instance and Modrinth pack were made and checked
   in test folders. The Mac app finds Java and opens its window.
 
@@ -110,13 +116,25 @@ Project layout:
   It's packed inside `omniloader.jar` and unpacked automatically.
 - `installer/`: the installer and the Mac app.
 - `devrun/`: a test game that loads everything from `devrun/run*/mods`.
+- `tools/`: test helpers (fetch the test mods, send commands to the test server).
 
 ## Roadmap
 
 1. ✅ **Loader core**: plugs into NeoForge, finds Fabric/Quilt/Forge/NeoForge jars, including bundled ones.
 2. ✅ **Fabric and Quilt**: name translation, mixins, access wideners, loader API, entrypoints.
-3. ⏳ **Fabric API**: stand-ins for the most-used parts (events, registries, networking, rendering hooks), built on NeoForge's events.
-   This is the big one: most Fabric mods need Fabric API.
+3. 🟡 **Fabric API**: stand-ins for the most-used parts, built on NeoForge's events.
+   This is the big one: most Fabric mods need Fabric API. Done so far:
+   - the event system (`Event`, `EventFactory`, phases)
+   - commands (`CommandRegistrationCallback`)
+   - server start/stop and data pack sync (`ServerLifecycleEvents`)
+   - server and client ticks (`ServerTickEvents`, `ClientTickEvents`)
+   - key bindings (`KeyBindingHelper`)
+
+   (Data-pack-reload and before/after-save events exist so mods don't crash, but aren't sent yet.)
+
+   Next, by how many popular mods use them: resource reload listeners, networking
+   (`PayloadTypeRegistry`, `ServerPlayNetworking`, `ClientPlayNetworking`), client commands,
+   screen events, HUD rendering, item groups, then the renderer API.
 4. ⏳ **Forge mods**: rewrite `net.minecraftforge` code to NeoForge's equivalents.
 
 For scale: Sinytra Connector, the best-known project that runs Fabric mods on NeoForge, took years

@@ -7,3 +7,4 @@ testmods/*.jar
 .idea/
 *.iml
 .DS_Store
+dist/
