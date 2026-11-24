@@ -112,9 +112,11 @@ public final class JarConverter {
             if (n.equals("META-INF/MANIFEST.MF") || n.equals("META-INF/neoforge.mods.toml") || n.equals("META-INF/mods.toml")) continue;
             if (upper.startsWith("META-INF/") && (upper.endsWith(".SF") || upper.endsWith(".RSA") || upper.endsWith(".DSA") || upper.endsWith(".EC"))) continue;
             if (n.endsWith("module-info.class")) continue;
+            // A switched-off mod is only listed (name, icon): no code, recipes, textures or bundled jars.
+            if (!active && !(n.equals("fabric.mod.json") || n.equals("quilt.mod.json") || n.equals(meta.icon) || n.startsWith("META-INF/") && !n.startsWith("META-INF/jars/"))) continue;
             byte[] b = e.getValue();
             if (n.endsWith(".class")) {
-                try { b = remapper.remapClass(b); classes++; }
+                try { b = NeoFieldGetters.apply(remapper.remapClass(b)); classes++; }
                 catch (Exception ex) { LOG.warn("[Omniloader] {}: could not translate {}: {}", meta.id, n, ex.toString()); }
             } else if (refmaps.contains(n)) {
                 b = remapRefmap(b, m);
@@ -123,7 +125,7 @@ public final class JarConverter {
         }
 
         String at = null;
-        if (meta.accessWidener != null && files.containsKey(meta.accessWidener)) {
+        if (active && meta.accessWidener != null && files.containsKey(meta.accessWidener)) {
             at = AccessWidenerConverter.convert(new String(files.get(meta.accessWidener), StandardCharsets.UTF_8), m);
             result.put("META-INF/accesstransformer.cfg", at.getBytes(StandardCharsets.UTF_8));
         }

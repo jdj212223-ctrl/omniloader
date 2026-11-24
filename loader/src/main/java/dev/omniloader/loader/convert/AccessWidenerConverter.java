@@ -11,6 +11,14 @@ public final class AccessWidenerConverter {
 
     private static final class Rule { int vis; boolean definal; }  // vis: 0 none, 1 protected, 2 public
 
+    /**
+     * Fields NeoForge itself rewrites into getter calls. Widening them breaks NeoForge's rewrite and crashes the game,
+     * so those rules are dropped (the mod's reads are redirected to the getters instead, see {@link NeoFieldGetters}).
+     */
+    static boolean protectedByNeoForge(String owner, String field) {
+        return NeoFieldGetters.GETTERS.containsKey(owner.replace('.', '/') + "." + field);
+    }
+
     public static String convert(String aw, Mappings m) {
         Map<String, Rule> rules = new LinkedHashMap<>();
         for (String raw : aw.split("\n")) {
@@ -24,7 +32,11 @@ public final class AccessWidenerConverter {
             switch (kind) {
                 case "class" -> target = owner;
                 case "method" -> target = owner + " " + m.mapMethod(t[3]) + m.mapText(t[4]);
-                case "field" -> target = owner + " " + m.mapField(t[3]);
+                case "field" -> {
+                    String f = m.mapField(t[3]);
+                    if (protectedByNeoForge(owner, f)) continue;
+                    target = owner + " " + f;
+                }
                 default -> { continue; }
             }
             Rule r = rules.computeIfAbsent(target, k -> new Rule());

@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -82,7 +84,41 @@ public class OmniLocator implements IModFileCandidateLocator {
         }
     }
 
-    private record Found(Path file, ModMeta meta) {}
+    private record Found(Path file, ModMeta meta, Set<String> apiRefs) {}
+
+    private static final Pattern API_REF = Pattern.compile("net[/.]fabricmc[/.]fabric[/.](?:api|impl)[/.][A-Za-z0-9_/.$]+");
+
+    /** Every Fabric API class a mod's code mentions (outer class names, slash form). */
+    private static Set<String> apiRefs(ZipFile z) throws IOException {
+        Set<String> out = new TreeSet<>();
+        for (ZipEntry e : java.util.Collections.list(z.entries())) {
+            if (!e.getName().endsWith(".class")) continue;
+            String text = new String(z.getInputStream(e).readAllBytes(), StandardCharsets.ISO_8859_1);
+            Matcher m = API_REF.matcher(text);
+            while (m.find()) {
+                String n = m.group().replace('.', '/');
+                int d = n.indexOf('$');
+                out.add(d > 0 ? n.substring(0, d) : n);
+            }
+        }
+        return out;
+    }
+
+    /** The Fabric API classes Omniloader's runtime provides (read from the runtime jar we carry). */
+    private static Set<String> providedApi() {
+        Set<String> out = new java.util.HashSet<>();
+        try (InputStream in = OmniLocator.class.getResourceAsStream("/META-INF/omniloader/omniloader-runtime.jar");
+             ZipInputStream z = new ZipInputStream(in)) {
+            ZipEntry e;
+            while ((e = z.getNextEntry()) != null) {
+                String n = e.getName();
+                if (n.startsWith("net/fabricmc/fabric/") && n.endsWith(".class") && !n.contains("$")) out.add(n.substring(0, n.length() - 6));
+            }
+        } catch (Exception ex) {
+            LOG.warn("[Omniloader] Could not list the Fabric API parts we provide: {}", ex.toString());
+        }
+        return out;
+    }
 
     private void scanModsFolder(IDiscoveryPipeline pipeline) {
         Path mods = FMLPaths.MODSDIR.get();
@@ -99,7 +135,7 @@ public class OmniLocator implements IModFileCandidateLocator {
                     }
                     ModMeta meta = metaOf(z);
                     if (meta != null) {
-                        fabricMods.add(new Found(p, meta));
+                        fabricMods.add(new Found(p, meta, apiRefs(z)));
                         register(meta);
                         for (String nested : meta.nestedJars) scanNested(z, nested, 0);
                         continue;
@@ -116,17 +152,26 @@ public class OmniLocator implements IModFileCandidateLocator {
             LOG.warn("[Omniloader] Could not list the mods folder: {}", e.toString());
         }
 
+        Set<String> provided = fabricMods.isEmpty() ? Set.of() : providedApi();
         for (Found f : fabricMods) {
             List<String> missing = new ArrayList<>();
+            boolean needsApi = false;
             for (String dep : f.meta.depends.keySet()) {
                 if (OmniState.BUILT_IN.contains(dep) || OmniState.presentIds.contains(dep) || OmniState.presentIds.contains(ModMeta.neoId(dep))) continue;
+                if (OmniState.isFabricApiId(dep)) { needsApi = true; continue; }
                 missing.add(dep);
             }
-            if (missing.isEmpty()) continue;
-            boolean api = missing.stream().allMatch(OmniState::isFabricApiId);
-            String reason = api
-                    ? "it needs Fabric API (" + String.join(", ", missing) + "), which Omniloader does not provide yet"
-                    : "it needs " + String.join(", ", missing) + ", which is not installed";
+            // Fabric API: instead of trusting the dependency list, check every Fabric API class the mod actually uses.
+            List<String> missingApi = f.apiRefs.stream().filter(r -> !provided.contains(r))
+                    .map(r -> r.substring(r.lastIndexOf('/') + 1)).distinct().toList();
+            if (missing.isEmpty() && missingApi.isEmpty()) {
+                if (needsApi) LOG.info("[Omniloader] {} uses Fabric API: all {} part(s) it uses are provided by Omniloader", f.meta.name, f.apiRefs.size());
+                continue;
+            }
+            String reason;
+            if (!missing.isEmpty()) reason = "it needs " + String.join(", ", missing) + ", which is not installed";
+            else reason = "it uses parts of Fabric API that Omniloader doesn't have yet ("
+                    + String.join(", ", missingApi.subList(0, Math.min(6, missingApi.size()))) + (missingApi.size() > 6 ? ", ..." : "") + ")";
             OmniState.disabled.put(f.meta.id, reason);
             LOG.warn("[Omniloader] Turning off {}: {}", f.meta.name, reason);
             pipeline.addIssue(ModLoadingIssue.warning(escape("Omniloader switched off " + f.meta.name + " because " + reason + "."))

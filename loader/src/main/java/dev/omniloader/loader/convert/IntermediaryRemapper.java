@@ -42,6 +42,9 @@ public final class IntermediaryRemapper extends Remapper {
             if (MEMBER_STRING.matcher(s).matches()) {
                 return s.startsWith("field_") ? m.mapField(s) : m.mapMethod(s);
             }
+            // Mixin targets written straight into annotations (newer Fabric toolchains, no refmap),
+            // e.g. "<init>(Lnet/minecraft/class_542;)V" or "Lnet/minecraft/class_310;method_1234()V".
+            if (s.contains("class_") || s.contains("method_") || s.contains("field_")) return m.mapText(s);
         }
         return super.mapValue(value);
     }

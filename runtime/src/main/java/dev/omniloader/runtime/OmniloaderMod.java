@@ -34,6 +34,10 @@ public final class OmniloaderMod {
         }
         LOG.info("[Omniloader] {} Fabric/Quilt mod(s) running on NeoForge:{}", foreign.size(), sb);
 
+        // Fabric API stand-ins: connect Fabric's events to NeoForge's.
+        dev.omniloader.runtime.fabricapi.CommonBridge.init();
+        if (FMLEnvironment.dist.isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
+
         run("preLaunch", "pre_launch");
         // Fabric mods register blocks/items straight into the game's registries while starting up.
         // NeoForge only allows that during its registry event, so that's where we start them.
