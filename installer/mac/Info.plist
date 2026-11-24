@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>Omniloader Installer</string>
+    <key>CFBundleDisplayName</key><string>Omniloader Installer</string>
+    <key>CFBundleIdentifier</key><string>dev.omniloader.installer</string>
+    <key>CFBundleVersion</key><string>${version}</string>
+    <key>CFBundleShortVersionString</key><string>${version}</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleExecutable</key><string>omniloader-installer</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key><string>11.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>

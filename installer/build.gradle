@@ -1,0 +1,58 @@
+// Double-click installer: sets up NeoForge + Omniloader for the official launcher, Prism, or Modrinth.
+base { archivesName = 'omniloader-installer' }
+
+configurations { shade; embedded }
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    shade 'com.google.code.gson:gson:2.10.1'
+    embedded project(path: ':loader', configuration: 'runtimeElements')
+}
+
+jar {
+    archiveVersion = ''
+    dependsOn ':loader:jar'
+    from(configurations.shade.collect { zipTree(it) }) { exclude 'META-INF/**' }
+    from(configurations.embedded.filter { it.name == 'omniloader.jar' }) { into 'payload' }
+    manifest.attributes('Main-Class': 'dev.omniloader.installer.Installer', 'Implementation-Version': project.version)
+}
+
+// Installer runs on any Java 17+ (Minecraft's own bundled Java qualifies).
+tasks.withType(JavaCompile).configureEach { options.release = 17 }
+
+// ---------------------------------------------------------------- Mac app + disk image
+def macDir = layout.buildDirectory.dir('mac')
+tasks.register('macApp') {
+    dependsOn jar
+    doLast {
+        def root = macDir.get().asFile
+        def app = new File(root, 'Omniloader Installer.app')
+        project.delete(root)
+        def res = new File(app, 'Contents/Resources'); res.mkdirs()
+        def bin = new File(app, 'Contents/MacOS'); bin.mkdirs()
+        project.copy { from jar.archiveFile; into res }
+        project.copy { from 'mac/Info.plist'; into new File(app, 'Contents'); expand(version: project.version) }
+        project.copy { from 'mac/launch.sh'; into bin; rename { 'omniloader-installer' } }
+        new File(bin, 'omniloader-installer').setExecutable(true, false)
+        // Icon: drawn by the installer itself, packed with Apple's iconutil.
+        def iconset = new File(root, 'AppIcon.iconset'); iconset.mkdirs()
+        [16, 32, 128, 256, 512].each { s ->
+            [[s, "icon_${s}x${s}.png"], [s * 2, "icon_${s}x${s}@2x.png"]].each { size, name ->
+                project.exec { commandLine 'java', '-Djava.awt.headless=true', '-jar', jar.archiveFile.get().asFile, '--write-icon', new File(iconset, name), size }
+            }
+        }
+        project.exec { commandLine 'iconutil', '-c', 'icns', iconset, '-o', new File(res, 'AppIcon.icns') }
+        project.delete(iconset)
+    }
+}
+tasks.register('macDmg') {
+    dependsOn 'macApp'
+    doLast {
+        def root = macDir.get().asFile
+        def dmg = new File(root, "Omniloader-Installer-${project.version}.dmg")
+        def stage = new File(root, 'dmg'); stage.mkdirs()
+        project.copy { from root; include 'Omniloader Installer.app/**'; into stage }
+        project.exec { commandLine 'hdiutil', 'create', '-quiet', '-volname', 'Omniloader Installer', '-srcfolder', stage, '-ov', '-format', 'UDZO', dmg }
+        project.delete(stage)
+        println "Made ${dmg}"
+    }
+}
