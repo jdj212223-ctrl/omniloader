@@ -10,7 +10,6 @@ import net.fabricmc.loader.api.MappingResolver;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.ObjectShare;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
-import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
@@ -56,13 +55,13 @@ public final class FabricLoaderImpl implements FabricLoader {
 
     private FabricLoaderImpl() {}
 
-    /** Gathers every mod in the game. Safe to call more than once. */
+    /** Gathers every mod in the game. Works from the moment mixins load (uses NeoForge's early mod list). */
     public synchronized void setup() {
         if (setUp) return;
         setUp = true;
         Map<String, ModContainerImpl> byNeoId = new HashMap<>();
         // 1) Fabric and Quilt mods that Omniloader converted.
-        for (IModFileInfo info : ModList.get().getModFiles()) {
+        for (IModFileInfo info : FMLLoader.getLoadingModList().getModFiles()) {
             IModFile file = info.getFile();
             Path marker = file.findResource("META-INF/omniloader/mod.json");
             if (!Files.isRegularFile(marker)) continue;
@@ -84,7 +83,7 @@ public final class FabricLoaderImpl implements FabricLoader {
             }
         }
         // 2) Everything else NeoForge loaded, so isModLoaded("sodium") etc. answer truthfully.
-        for (IModInfo info : ModList.get().getMods()) {
+        for (IModInfo info : FMLLoader.getLoadingModList().getMods()) {
             if (byNeoId.containsKey(info.getModId())) continue;
             ModMetadataImpl meta = ModMetadataImpl.simple("builtin".equals(info.getModId()) ? "builtin" : "neoforge",
                     info.getModId(), info.getDisplayName(), info.getVersion().toString());
@@ -99,7 +98,7 @@ public final class FabricLoaderImpl implements FabricLoader {
         addBuiltin("fabricloader", "Fabric Loader (Omniloader)", FABRIC_LOADER_VERSION);
         addBuiltin("java", "Java " + Runtime.version().feature(), String.valueOf(Runtime.version().feature()));
         // Parent/child links for mods that were bundled inside other mods.
-        for (IModFileInfo info : ModList.get().getModFiles()) {
+        for (IModFileInfo info : FMLLoader.getLoadingModList().getModFiles()) {
             IModFile f = info.getFile();
             IModFile parent = f.getDiscoveryAttributes().parent();
             if (parent == null || f.getModInfos().isEmpty() || parent.getModInfos().isEmpty()) continue;
@@ -131,9 +130,9 @@ public final class FabricLoaderImpl implements FabricLoader {
         }
     }
 
-    public List<Entry> rawEntrypoints(String key) { return entrypoints.getOrDefault(key, List.of()); }
+    public List<Entry> rawEntrypoints(String key) { setup(); return entrypoints.getOrDefault(key, List.of()); }
 
-    public Collection<ModContainerImpl> containers() { return Collections.unmodifiableCollection(mods.values()); }
+    public Collection<ModContainerImpl> containers() { setup(); return Collections.unmodifiableCollection(mods.values()); }
 
     /** Creates (or reuses) the object an entrypoint string points at. */
     public synchronized Object instantiate(Entry e, Class<?> type) throws Exception {
