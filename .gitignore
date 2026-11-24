@@ -1,0 +1,9 @@
+.gradle/
+build/
+**/build/
+devrun/run/
+devrun/run-server/
+testmods/*.jar
+.idea/
+*.iml
+.DS_Store

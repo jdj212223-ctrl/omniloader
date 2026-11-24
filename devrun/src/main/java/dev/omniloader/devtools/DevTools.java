@@ -1,0 +1,33 @@
+package dev.omniloader.devtools;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.common.NeoForge;
+
+import java.io.File;
+
+/** Test helper for the dev game only (never shipped): saves a screenshot of the title screen, then optionally quits. */
+@Mod(value = "omnidevtools", dist = Dist.CLIENT)
+public final class DevTools {
+    private long firstSeen = -1;
+    private boolean done;
+
+    public DevTools() {
+        if (!Boolean.getBoolean("omniloader.titleShot")) return;
+        NeoForge.EVENT_BUS.addListener(ScreenEvent.Render.Post.class, e -> {
+            if (done || !(e.getScreen() instanceof TitleScreen)) return;
+            if (firstSeen < 0) firstSeen = System.currentTimeMillis();
+            if (System.currentTimeMillis() - firstSeen < 4000) return;
+            done = true;
+            Minecraft mc = Minecraft.getInstance();
+            mc.execute(() -> Screenshot.grab(mc.gameDirectory, "omniloader-title.png", mc.getMainRenderTarget(), msg -> {
+                System.out.println("[DevTools] title screenshot saved");
+                if (Boolean.getBoolean("omniloader.quitAfterShot")) mc.stop();
+            }));
+        });
+    }
+}

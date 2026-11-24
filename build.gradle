@@ -1,0 +1,8 @@
+subprojects {
+    apply plugin: 'java-library'
+    group = 'dev.omniloader'
+    version = rootProject.omni_version
+    java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+    tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+    repositories { mavenCentral() }
+}
