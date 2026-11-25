@@ -84,10 +84,12 @@ public final class RefChecker {
                 Class<?> k = todo.poll();
                 if (k == null || !seen.add(k)) continue;
                 for (var m : k.getDeclaredMethods()) if ((m.getName() + org.objectweb.asm.Type.getMethodDescriptor(m)).equals(want)) return true;
-                todo.add(k.getSuperclass());
+                if (k.getSuperclass() != null) todo.add(k.getSuperclass());
                 todo.addAll(List.of(k.getInterfaces()));
             }
-            return c.isInterface() && p[2].matches("hashCode|equals|toString|getClass");
+            // interfaces also answer Object's methods
+            if (c.isInterface()) for (var m : Object.class.getDeclaredMethods()) if ((m.getName() + org.objectweb.asm.Type.getMethodDescriptor(m)).equals(want)) return true;
+            return false;
         } catch (Throwable t) {
             return false;
         }

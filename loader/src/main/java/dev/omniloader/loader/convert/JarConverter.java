@@ -130,7 +130,19 @@ public final class JarConverter {
             if (upper.startsWith("META-INF/") && (upper.endsWith(".SF") || upper.endsWith(".RSA") || upper.endsWith(".DSA") || upper.endsWith(".EC"))) continue;
             if (n.endsWith("module-info.class")) continue;
             // A switched-off mod is only listed (name, icon): no code, recipes, textures or bundled jars.
-            if (!active && !(n.equals("fabric.mod.json") || n.equals("quilt.mod.json") || n.equals(meta.icon) || n.startsWith("META-INF/") && !n.startsWith("META-INF/jars/"))) continue;
+            if (!active && !(n.equals("fabric.mod.json") || n.equals("quilt.mod.json") || n.equals(meta.icon) || n.startsWith("META-INF/") && !n.startsWith("META-INF/jars/"))) {
+                if (n.endsWith(".class")) {
+                    // not kept, but measured: the report lists everything this mod would need
+                    try {
+                        byte[] c = e.getValue().clone();
+                        ClassVersions.downgrade(c, Platform.MAX_CLASS_VERSION);
+                        if (remapper != null) c = remapper.remapClass(c); else if (bridger != null) c = bridger.remapClass(c);
+                        if (crossVersion) c = Backporter.apply(c);
+                        RefCollector.collect(c, refs, new java.util.HashSet<>(), newerJava);
+                    } catch (Exception ignored) {}
+                }
+                continue;
+            }
             byte[] b = e.getValue();
             if (n.endsWith(".class")) {
                 try {
@@ -141,7 +153,7 @@ public final class JarConverter {
                     if (crossVersion) b = Backporter.apply(b);
                     b = NeoFieldGetters.apply(b);
                     classes++;
-                    if (active) RefCollector.collect(b, refs, adds, newerJava);
+                    RefCollector.collect(b, refs, adds, newerJava); // also for switched-off mods: the report says what they'd need
                 }
                 catch (Exception ex) { LOG.warn("[Omniloader] {}: could not translate {}: {}", meta.id, n, ex.toString()); }
             } else if (refmaps.contains(n) && m != null) {
@@ -160,8 +172,8 @@ public final class JarConverter {
             result.put("META-INF/accesstransformer.cfg", at.getBytes(StandardCharsets.UTF_8));
         }
 
+        result.put("META-INF/omniloader/refs.txt", String.join("\n", refs).getBytes(StandardCharsets.UTF_8));
         if (active) {
-            result.put("META-INF/omniloader/refs.txt", String.join("\n", refs).getBytes(StandardCharsets.UTF_8));
             result.put("META-INF/omniloader/adds.txt", String.join("\n", adds).getBytes(StandardCharsets.UTF_8));
             result.put("META-INF/omniloader/mixins.txt", String.join("\n", mixinPlugins).getBytes(StandardCharsets.UTF_8));
         }

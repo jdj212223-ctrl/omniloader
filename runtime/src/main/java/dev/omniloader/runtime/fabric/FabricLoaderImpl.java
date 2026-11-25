@@ -74,6 +74,7 @@ public final class FabricLoaderImpl implements FabricLoader {
         setUp = true;
         Map<String, ModContainerImpl> byNeoId = new HashMap<>();
         Map<ModContainerImpl, String> toCheck = new LinkedHashMap<>();
+        Map<ModContainerImpl, String> offRefs = new LinkedHashMap<>();
         Map<ModContainerImpl, JsonObject> descriptors = new HashMap<>();
         Map<ModContainerImpl, Boolean> quiltMods = new HashMap<>();
         // 1) Fabric and Quilt mods that Omniloader converted.
@@ -111,6 +112,7 @@ public final class FabricLoaderImpl implements FabricLoader {
                     if (p.length == 2) mixinOwners.put(p[0], new MixinOwner(c, p[1].equals("-") ? null : p[1]));
                 }
                 if (c.active) toCheck.put(c, Platform.readText(file, "META-INF/omniloader/refs.txt"));
+                else offRefs.put(c, Platform.readText(file, "META-INF/omniloader/refs.txt"));
                 descriptors.put(c, json);
                 quiltMods.put(c, quilt);
                 mods.put(meta.getId(), c);
@@ -155,8 +157,16 @@ public final class FabricLoaderImpl implements FabricLoader {
 
         // Mods already switched off while being converted (whole classes missing, Fabric API missing, wrong side...).
         for (ModContainerImpl c : byNeoId.values())
-            if (!c.active && c.offReason != null && !toCheck.containsKey(c))
+            if (!c.active && c.offReason != null && !toCheck.containsKey(c)) {
                 report.append("\n== ").append(c.getMetadata().getName()).append(" (").append(c.getMetadata().getId()).append(")\n   ").append(c.offReason).append('\n');
+                String refs = offRefs.get(c);
+                if (refs != null && !refs.isBlank()) {
+                    // Full picture: everything it would need that this game (with Omniloader) doesn't have.
+                    List<String> all = RefChecker.missing(refs);
+                    report.append("   everything it would need that's missing here (").append(all.size()).append("):\n");
+                    for (String m : all) report.append("   - ").append(m).append('\n');
+                }
+            }
         try {
             java.nio.file.Path rp = getGameDir().resolve(".omniloader").resolve("report.txt");
             java.nio.file.Files.createDirectories(rp.getParent());
