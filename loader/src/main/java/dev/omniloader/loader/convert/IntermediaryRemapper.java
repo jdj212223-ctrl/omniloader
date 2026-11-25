@@ -24,7 +24,7 @@ public final class IntermediaryRemapper extends Remapper {
     }
 
     @Override public String map(String internalName) {
-        if (internalName.startsWith("net/minecraft/class_")) return m.mapClass(internalName);
+        if (internalName.startsWith("net/minecraft/class_") || internalName.contains("$class_")) return m.mapClass(internalName);
         return m.bridge.isEmpty() ? internalName : m.bridge.getOrDefault(internalName, internalName);
     }
     @Override public String mapMethodName(String owner, String name, String descriptor) { return m.mapMethod(name); }

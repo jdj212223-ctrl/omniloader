@@ -221,6 +221,15 @@ public final class FabricLoaderImpl implements FabricLoader {
         }
     }
 
+    /** Switches a mod off after startup checks (e.g. its mixin plugin failed). Its startup code won't run. */
+    public synchronized void switchOff(ModContainerImpl c, String reason) {
+        if (c == null || !c.active) return;
+        c.active = false;
+        c.offReason = reason;
+        LOG.warn("[Omniloader] Switching off {}: {}", c.getMetadata().getName(), reason);
+        entrypoints.values().forEach(l -> l.removeIf(e -> e.mod() == c));
+    }
+
     public List<Entry> rawEntrypoints(String key) { setup(); return entrypoints.getOrDefault(key, List.of()); }
 
     public Collection<ModContainerImpl> containers() { setup(); return Collections.unmodifiableCollection(mods.values()); }

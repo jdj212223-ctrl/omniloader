@@ -21,3 +21,6 @@ config = "omniloader.mixins.json"
 
 [[accessTransformers]]
 file = "META-INF/accesstransformer.cfg"
+
+[[accessTransformers]]
+file = "META-INF/omniloader-own.cfg"

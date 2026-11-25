@@ -69,6 +69,10 @@ All of these were run in a real game on an Apple Silicon Mac:
   This mod writes Minecraft names straight into its mixins, which Omniloader also translates.
 - **Nature's Compass** (Fabric + Fabric API networking and creative tabs): runs on server and client, and a
   client with it joined a server with it.
+- **Ping Wheel** (Fabric + 14 Fabric API parts): runs on server and client; its `/pingwheel` client command
+  is there in-game and its network messages work when a client joins a server.
+- **Mouse Tweaks, Cherished Worlds, Better Advancements, Resource Pack Overrides** (Fabric, screen events): run.
+- **Just Enough Characters** (Fabric): switched off safely. It reaches into Fabric Loader's internals; use its NeoForge version.
 - **AppleSkin** (NeoForge): loads alongside all of the above, 12 mods in total.
 - The installer: Minecraft Launcher profile, Prism instance and Modrinth pack were made and checked
   in test folders. The Mac app finds Java and opens its window.
@@ -117,6 +121,12 @@ in your game. For those, use the mod's own 1.21.1 version (Vampirism 1.10.13 for
 
 Omniloader also has a **Minecraft 26.1 edition** (`versions/26.1`). There, Vampirism 2.0 runs
 together with Fabric mods. That edition isn't in the installer yet.
+
+### When a Fabric mod's hook doesn't fit
+
+NeoForge rewrites some parts of Minecraft. Now and then a Fabric mod hooks ("mixes in") at a spot that NeoForge
+changed. Omniloader then skips just that one hook with a warning in the log, instead of crashing the game.
+The rest of the mod keeps working. If a mod's own mixin plugin fails to start, only that mod is switched off.
 
 ## How it works (short version)
 
@@ -173,6 +183,11 @@ Project layout:
    - creative tabs (`ItemGroupEvents`, `FabricItemGroupEntries`, `FabricItemGroup`)
    - resource reload listeners (`ResourceManagerHelper`, `IdentifiableResourceReloadListener`, `SimpleSynchronousResourceReloadListener`)
    - HUD drawing (`HudRenderCallback`)
+   - client commands (`ClientCommandRegistrationCallback`, `ClientCommandManager`, `FabricClientCommandSource`)
+   - screens (`ScreenEvents`, `ScreenMouseEvents`, `ScreenKeyboardEvents`, `Screens`)
+   - player interaction (`UseItemCallback`, `UseBlockCallback`, `UseEntityCallback`, `AttackBlockCallback`, `AttackEntityCallback`, `PlayerBlockBreakEvents`)
+   - entities and players (`ServerLivingEntityEvents`, `ServerPlayerEvents`, `ServerEntityCombatEvents`, `ServerEntityWorldChangeEvents`, `ServerEntityEvents`, `EntitySleepEvents`, `PlayerLookup`)
+   - worlds and tags (`ServerWorldEvents`, `CommonLifecycleEvents`), client start/stop (`ClientLifecycleEvents`)
    - Fabric API's 635 "transitive access wideners" (parts of Minecraft Fabric makes reachable for every mod)
 
    (Data-pack-reload and before/after-save events exist so mods don't crash, but aren't sent yet.)

@@ -23,7 +23,8 @@ public final class RefCollector {
     private RefCollector() {}
 
     static boolean game(String owner) {
-        return owner != null && (owner.startsWith("net/minecraft/") || owner.startsWith("com/mojang/blaze3d/") || owner.startsWith("net/neoforged/neoforge/"));
+        return owner != null && (owner.startsWith("net/minecraft/") || owner.startsWith("com/mojang/blaze3d/") || owner.startsWith("net/neoforged/neoforge/")
+                || owner.startsWith("net/fabricmc/fabric/api/") || owner.startsWith("net/fabricmc/loader/api/") || owner.startsWith("org/quiltmc/"));
     }
 
     static boolean jdk(String owner) {

@@ -26,6 +26,9 @@ public final class DevTools {
                 if (++worldTicks == 100) {
                     done = true;
                     System.out.println("[DevTools] in world, players online: " + mc.getConnection().getOnlinePlayers().size());
+                    var names = new java.util.TreeSet<String>();
+                    net.neoforged.neoforge.client.ClientCommandHandler.getDispatcher().getRoot().getChildren().forEach(n -> names.add(n.getName()));
+                    System.out.println("[DevTools] client commands: " + names);
                     Shot.grab(mc, "omniloader-join.png", () -> { System.out.println("[DevTools] join screenshot saved"); mc.stop(); });
                 }
             });

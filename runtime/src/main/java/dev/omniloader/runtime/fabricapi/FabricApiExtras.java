@@ -11,6 +11,7 @@ public final class FabricApiExtras {
     public static void init(IEventBus modBus) {
         NetworkBridge.init(modBus);
         ResourceBridge.init(modBus);
+        GameEventsBridge.init();
         if (Platform.isClient()) Client.init(modBus);
     }
 
@@ -18,6 +19,7 @@ public final class FabricApiExtras {
     static final class Client {
         static void init(IEventBus modBus) {
             ClientNetworkBridge.init();
+            ScreenBridge.init();
             modBus.addListener(net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent.class,
                     e -> ResourceBridge.CLIENT.forEach(e::registerReloadListener));
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderGuiEvent.Post.class,

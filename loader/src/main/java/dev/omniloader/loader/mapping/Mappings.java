@@ -18,7 +18,7 @@ public final class Mappings {
     public final Map<String, String> methods = new HashMap<>();   // method_123 / comp_1 -> name
     public final Map<String, String> fields = new HashMap<>();    // field_123 / comp_1 -> name
 
-    private static final Pattern CLASS = Pattern.compile("net/minecraft/class_\\d+(?:\\$class_\\d+)*");
+    private static final Pattern CLASS = Pattern.compile("(?:net/minecraft/class_\\d+|[a-z][a-z0-9_]*(?:/[A-Za-z0-9_]+)+)(?:\\$class_\\d+)+|net/minecraft/class_\\d+");
     private static final Pattern CLASS_DOT = Pattern.compile("net\\.minecraft\\.class_\\d+(?:\\$class_\\d+)*");
     private static final Pattern MEMBER = Pattern.compile("\\b(method_\\d+|field_\\d+|comp_\\d+)\\b");
 

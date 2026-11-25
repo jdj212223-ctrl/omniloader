@@ -2,6 +2,9 @@ apply from: rootProject.file('gradle/omni/common.gradle')
 
 base { archivesName = 'omniloader-runtime' }
 omniSources('runtime/src/main/java', 'runtime')
+// Our own access needs also apply when compiling (Fabric API's long list is only applied in the running game).
+def atFile = rootProject.file("versions/${project.mc_version}/runtime/resources/META-INF/omniloader-own.cfg")
+if (atFile.exists()) neoForge.accessTransformers.from(atFile)
 processResources {
     from(rootProject.file('runtime/src/main/resources'))
     from(rootProject.file("versions/${project.mc_version}/runtime/resources"))

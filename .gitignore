@@ -8,3 +8,4 @@ testmods/**/*.jar
 *.iml
 .DS_Store
 dist/
+reference/

@@ -147,7 +147,9 @@ public final class JarConverter {
             } else if (refmaps.contains(n) && m != null) {
                 b = remapRefmap(b, m);
             } else if (active && meta.mixins.stream().anyMatch(x -> x.config().equals(n))) {
-                b = gateMixinConfig(b, crossVersion || newerJava, mixinPlugins);
+                // Soft for every converted mod: NeoForge rewrites parts of Minecraft, so a hook can miss its spot.
+                // Skipping that one hook (with a warning) beats crashing the whole game.
+                b = gateMixinConfig(b, true, mixinPlugins);
             }
             result.put(n, b);
         }
