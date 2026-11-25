@@ -1,0 +1,10 @@
+apply from: rootProject.file('gradle/omni/common.gradle')
+
+base { archivesName = 'omniloader-runtime' }
+omniSources('runtime/src/main/java', 'runtime')
+processResources {
+    from(rootProject.file('runtime/src/main/resources'))
+    from(rootProject.file("versions/${project.mc_version}/runtime/resources"))
+    filesMatching('META-INF/neoforge.mods.toml') { expand(version: project.version, neo_range: project.neo_range, mc: project.mc_version) }
+}
+jar { archiveVersion = '' }

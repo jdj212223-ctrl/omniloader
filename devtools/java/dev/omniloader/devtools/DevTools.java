@@ -1,7 +1,6 @@
 package dev.omniloader.devtools;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.common.Mod;
@@ -24,7 +23,7 @@ public final class DevTools {
             if (System.currentTimeMillis() - firstSeen < 4000) return;
             done = true;
             Minecraft mc = Minecraft.getInstance();
-            mc.execute(() -> Screenshot.grab(mc.gameDirectory, "omniloader-title.png", mc.getMainRenderTarget(), msg -> {
+            mc.execute(() -> Shot.grab(mc, "omniloader-title.png", () -> {
                 System.out.println("[DevTools] title screenshot saved");
                 if (Boolean.getBoolean("omniloader.quitAfterShot")) mc.stop();
             }));

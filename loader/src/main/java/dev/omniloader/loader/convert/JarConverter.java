@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import dev.omniloader.loader.OmniPaths;
+import dev.omniloader.loader.Platform;
 import dev.omniloader.loader.mapping.MappingLoader;
 import dev.omniloader.loader.mapping.Mappings;
 import org.slf4j.Logger;
@@ -83,8 +84,13 @@ public final class JarConverter {
         if (Files.isRegularFile(out)) return new Result(out, meta, active, reason);
 
         long t0 = System.nanoTime();
-        Mappings m = MappingLoader.get();
-        IntermediaryRemapper remapper = new IntermediaryRemapper(m);
+        // Mods built for an obfuscated Minecraft (1.21.x and older) use Fabric's "intermediary" names.
+        // Mods built for 26.1+ already use Mojang's real names and need no translation.
+        boolean intermediary = usesIntermediary(files);
+        boolean crossVersion = intermediary && !Platform.MC.equals(MappingLoader.MC);
+        Mappings m = intermediary ? MappingLoader.get() : null;
+        if (crossVersion) m = m.withBridge(Bridges.load(MappingLoader.MC, Platform.MC));
+        IntermediaryRemapper remapper = intermediary ? new IntermediaryRemapper(m) : null;
 
         // Which mixin configs apply on this side, and which refmaps they use.
         List<String> mixinConfigs = new ArrayList<>();
@@ -103,6 +109,8 @@ public final class JarConverter {
         for (String n : files.keySet()) if (n.endsWith("refmap.json") && !n.contains("/")) refmaps.add(n);
 
         Map<String, byte[]> result = new LinkedHashMap<>();
+        java.util.Set<String> refs = new java.util.TreeSet<>(), adds = new java.util.TreeSet<>();
+        List<String> mixinPlugins = new ArrayList<>();
         Manifest mf = new Manifest();
         if (files.containsKey("META-INF/MANIFEST.MF")) mf.read(new ByteArrayInputStream(files.get("META-INF/MANIFEST.MF")));
         int classes = 0;
@@ -116,26 +124,39 @@ public final class JarConverter {
             if (!active && !(n.equals("fabric.mod.json") || n.equals("quilt.mod.json") || n.equals(meta.icon) || n.startsWith("META-INF/") && !n.startsWith("META-INF/jars/"))) continue;
             byte[] b = e.getValue();
             if (n.endsWith(".class")) {
-                try { b = NeoFieldGetters.apply(remapper.remapClass(b)); classes++; }
+                try {
+                    b = NeoFieldGetters.apply(remapper != null ? remapper.remapClass(b) : b);
+                    classes++;
+                    if (active) RefCollector.collect(b, refs, adds);
+                }
                 catch (Exception ex) { LOG.warn("[Omniloader] {}: could not translate {}: {}", meta.id, n, ex.toString()); }
-            } else if (refmaps.contains(n)) {
+            } else if (refmaps.contains(n) && m != null) {
                 b = remapRefmap(b, m);
+            } else if (active && meta.mixins.stream().anyMatch(x -> x.config().equals(n))) {
+                b = gateMixinConfig(b, crossVersion, mixinPlugins);
             }
             result.put(n, b);
         }
 
         String at = null;
         if (active && meta.accessWidener != null && files.containsKey(meta.accessWidener)) {
-            at = AccessWidenerConverter.convert(new String(files.get(meta.accessWidener), StandardCharsets.UTF_8), m);
+            at = AccessWidenerConverter.convert(new String(files.get(meta.accessWidener), StandardCharsets.UTF_8), m != null ? m : new Mappings());
             result.put("META-INF/accesstransformer.cfg", at.getBytes(StandardCharsets.UTF_8));
         }
 
-        result.put("META-INF/neoforge.mods.toml", toml(meta, mixinConfigs, at != null).getBytes(StandardCharsets.UTF_8));
+        if (active) {
+            result.put("META-INF/omniloader/refs.txt", String.join("\n", refs).getBytes(StandardCharsets.UTF_8));
+            result.put("META-INF/omniloader/adds.txt", String.join("\n", adds).getBytes(StandardCharsets.UTF_8));
+            result.put("META-INF/omniloader/mixins.txt", String.join("\n", mixinPlugins).getBytes(StandardCharsets.UTF_8));
+        }
+        String builtFor = meta.depends.getOrDefault("minecraft", "?");
+        result.put("META-INF/neoforge.mods.toml", toml(meta, mixinConfigs, at != null, crossVersion ? builtFor : null).getBytes(StandardCharsets.UTF_8));
         JsonObject info = new JsonObject();
         info.addProperty("loader", meta.loader);
         info.addProperty("id", meta.id);
         info.addProperty("neoId", meta.neoId);
         info.addProperty("active", active);
+        info.addProperty("crossVersion", crossVersion);
         if (reason != null) info.addProperty("reason", reason);
         JsonArray provides = new JsonArray();
         meta.provides.forEach(provides::add);
@@ -163,9 +184,34 @@ public final class JarConverter {
             }
         }
         Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING);
-        LOG.info("[Omniloader] Converted {} mod '{}' ({} classes, {} mixin configs) in {} ms",
-                meta.loader, meta.id, classes, mixinConfigs.size(), (System.nanoTime() - t0) / 1_000_000);
+        LOG.info("[Omniloader] Converted {} mod '{}' ({} classes, {} mixin configs{}) in {} ms",
+                meta.loader, meta.id, classes, mixinConfigs.size(),
+                crossVersion ? ", built for Minecraft " + builtFor + ": bridged to " + Platform.MC + ", may not fully work" : "",
+                (System.nanoTime() - t0) / 1_000_000);
         return new Result(out, meta, active, reason);
+    }
+
+    /**
+     * Puts Omniloader's gatekeeper plugin in front of a mod's mixins (so a switched-off mod changes nothing),
+     * remembering the mod's own plugin. Mods made for another Minecraft version also get "soft" mixins:
+     * one that no longer fits the game is skipped with a warning instead of stopping the whole game.
+     */
+    private static byte[] gateMixinConfig(byte[] in, boolean soft, List<String> plugins) {
+        try {
+            JsonObject o = JsonParser.parseString(new String(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            String pkg = o.has("package") ? o.get("package").getAsString() : "";
+            plugins.add(pkg + "\t" + (o.has("plugin") ? o.get("plugin").getAsString() : "-"));
+            o.addProperty("plugin", "dev.omniloader.runtime.OmniMixinPlugin");
+            if (soft) {
+                o.addProperty("required", false);
+                JsonObject inj = o.has("injectors") ? o.getAsJsonObject("injectors") : new JsonObject();
+                inj.addProperty("defaultRequire", 0);
+                o.add("injectors", inj);
+            }
+            return GSON.toJson(o).getBytes(StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return in;
+        }
     }
 
     private static byte[] remapRefmap(byte[] in, Mappings m) {
@@ -208,7 +254,17 @@ public final class JarConverter {
         return sb.append('"').toString();
     }
 
-    private static String toml(ModMeta meta, List<String> mixins, boolean hasAt) {
+    /** True if the jar's code uses Fabric's intermediary names (made for an obfuscated Minecraft). */
+    static boolean usesIntermediary(Map<String, byte[]> files) {
+        for (var e : files.entrySet()) {
+            if (!e.getKey().endsWith(".class")) continue;
+            if (new String(e.getValue(), StandardCharsets.ISO_8859_1).contains("net/minecraft/class_")) return true;
+        }
+        for (var e : files.entrySet()) if (e.getKey().endsWith("refmap.json")) return true;
+        return false;
+    }
+
+    private static String toml(ModMeta meta, List<String> mixins, boolean hasAt, String crossFrom) {
         StringBuilder t = new StringBuilder();
         t.append("# Generated by Omniloader from a ").append(meta.loader).append(" mod\n");
         t.append("modLoader=\"javafml\"\nloaderVersion=\"[1,)\"\n");
@@ -218,7 +274,9 @@ public final class JarConverter {
         t.append("version=").append(q(meta.version)).append('\n');
         String tag = meta.loader.equals("quilt") ? "Quilt" : "Fabric";
         t.append("displayName=").append(q(meta.name)).append('\n');
-        t.append("description=").append(q(meta.description + "\n\n[" + tag + " mod, running through Omniloader]")).append('\n');
+        String note = crossFrom == null ? "[" + tag + " mod, running through Omniloader]"
+                : "[" + tag + " mod made for Minecraft " + crossFrom + ", bridged to " + Platform.MC + " by Omniloader. Parts of it may not work.]";
+        t.append("description=").append(q(meta.description + "\n\n" + note)).append('\n');
         if (!meta.authors.isEmpty()) t.append("authors=").append(q(String.join(", ", meta.authors))).append('\n');
         if (meta.icon != null) t.append("logoFile=").append(q(meta.icon)).append('\n');
         for (String mx : mixins) t.append("\n[[mixins]]\nconfig=").append(q(mx)).append('\n');

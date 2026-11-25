@@ -2,7 +2,6 @@ package dev.omniloader.loader;
 
 import dev.omniloader.loader.convert.ModMeta;
 import net.neoforged.fml.ModLoadingIssue;
-import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforgespi.ILaunchContext;
 import net.neoforged.neoforgespi.locating.IDiscoveryPipeline;
@@ -50,8 +49,8 @@ public class OmniLocator implements IModFileCandidateLocator {
 
     @Override
     public void findCandidates(ILaunchContext context, IDiscoveryPipeline pipeline) {
-        LOG.info("[Omniloader] Omniloader {} starting on the {} side - Fabric, Quilt and NeoForge mods welcome",
-                version(), FMLLoader.getDist().name().toLowerCase());
+        LOG.info("[Omniloader] Omniloader {} for Minecraft " + Platform.MC + " starting on the {} side - Fabric, Quilt and NeoForge mods welcome",
+                version(), Platform.isClient() ? "client" : "server");
         addRuntime(pipeline);
         scanModsFolder(pipeline);
     }

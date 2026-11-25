@@ -40,9 +40,8 @@ public class OmniNestedLocator implements IDependencyLocator {
     public void scanMods(List<IModFile> loadedMods, IDiscoveryPipeline pipeline) {
         Set<String> seen = new HashSet<>();
         for (IModFile mod : loadedMods) {
-            Path marker = mod.findResource("META-INF/omniloader/mod.json");
-            if (!Files.isRegularFile(marker)) continue;
             try {
+                if (Platform.readFile(mod, "META-INF/omniloader/mod.json") == null) continue;
                 byte[] data = Files.readAllBytes(mod.getFilePath());
                 unpack(JarConverter.readZip(data), mod, pipeline, seen, 0);
             } catch (Exception e) {

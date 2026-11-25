@@ -1,0 +1,28 @@
+// Shared setup for one Minecraft version's projects (versions/<mc>/{runtime,loader,devrun}).
+// Version settings live in versions/<mc>/gradle.properties:
+//   mc_version, neo_version, neo_range, java_version, omni_replace (Old=New;Old2=New2 renames applied to shared sources)
+apply plugin: 'java-library'
+apply plugin: 'net.neoforged.moddev'
+
+group = 'dev.omniloader'
+version = rootProject.omni_version
+java.toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(project.java_version))
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+repositories { mavenCentral() }
+
+neoForge { version = project.neo_version }
+
+/** Copies shared sources into build/, renaming things Minecraft/NeoForge renamed in this version. */
+ext.omniSources = { String sharedDir, String part ->
+    def replace = [:]
+    (project.findProperty('omni_replace') ?: '').split(';').each { if (it.contains('=')) { def kv = it.split('='); replace[kv[0].trim()] = kv[1].trim() } }
+    def out = layout.buildDirectory.dir("omni-src/$part")
+    def prep = tasks.register("prepare${part.capitalize()}Sources", Sync) {
+        from(rootProject.file(sharedDir))
+        into out
+        inputs.property('replace', replace.toString())
+        filter { String line -> replace.inject(line) { l, kv -> l.replaceAll('\\b' + java.util.regex.Pattern.quote(kv.key) + '\\b', kv.value) } }
+    }
+    sourceSets.main.java.srcDirs = [out, rootProject.file("versions/${project.mc_version}/$part/java")]
+    tasks.named('compileJava') { dependsOn prep }
+}

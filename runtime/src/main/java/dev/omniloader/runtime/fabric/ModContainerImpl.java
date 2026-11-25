@@ -16,7 +16,10 @@ public final class ModContainerImpl implements ModContainer {
     private final Path origin;
     /** Fabric/Quilt mod running through Omniloader (as opposed to a NeoForge or built-in mod). */
     public final boolean foreign;
-    public final boolean active;
+    public boolean active;
+    /** Made for a different Minecraft version (bridged by Omniloader). */
+    public boolean crossVersion;
+    public String offReason;
     public final String neoId;
     public ModContainerImpl parent;
     public final List<ModContainer> children = new ArrayList<>();

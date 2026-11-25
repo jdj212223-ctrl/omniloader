@@ -1,10 +1,9 @@
 package dev.omniloader.loader;
 
-import cpw.mods.jarhandling.JarContents;
+import net.neoforged.fml.jarcontents.JarContents;
 import dev.omniloader.loader.convert.JarConverter;
 import net.neoforged.fml.ModLoadingException;
 import net.neoforged.fml.ModLoadingIssue;
-import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.moddiscovery.readers.JarModsDotTomlModFileReader;
 import net.neoforged.neoforgespi.locating.IModFile;
 import net.neoforged.neoforgespi.locating.IModFileReader;
@@ -40,14 +39,14 @@ public class OmniModReader implements IModFileReader {
             byte[] data = Files.readAllBytes(jar.getPrimaryPath());
             var metaPeek = JarConverter.readMeta(JarConverter.readZip(data));
             String disabled = metaPeek == null ? null : OmniState.disabled.get(metaPeek.id);
-            String dist = FMLLoader.getDist().isClient() ? "client" : "server";
+            String dist = Platform.isClient() ? "client" : "server";
             JarConverter.Result r = JarConverter.convert(data, dist, disabled);
             if (r.active()) {
                 LOG.info("[Omniloader] Loading {} mod {} {} ({})", r.meta().loader, r.meta().name, r.meta().version, jar.getPrimaryPath().getFileName());
             } else {
                 LOG.info("[Omniloader] Listing {} mod {} but not starting it, because {}", r.meta().loader, r.meta().name, r.reason());
             }
-            return JarModsDotTomlModFileReader.createModFile(JarContents.of(r.jar()), attributes.withReader(this));
+            return JarModsDotTomlModFileReader.createModFile(JarContents.ofPath(r.jar()), attributes.withReader(this));
         } catch (Exception e) {
             LOG.error("[Omniloader] Failed to convert {}", jar.getPrimaryPath(), e);
             throw new ModLoadingException(ModLoadingIssue.error(OmniLocator.escape(

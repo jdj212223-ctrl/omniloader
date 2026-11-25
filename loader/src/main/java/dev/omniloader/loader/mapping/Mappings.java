@@ -22,9 +22,19 @@ public final class Mappings {
     private static final Pattern CLASS_DOT = Pattern.compile("net\\.minecraft\\.class_\\d+(?:\\$class_\\d+)*");
     private static final Pattern MEMBER = Pattern.compile("\\b(method_\\d+|field_\\d+|comp_\\d+)\\b");
 
+    /** Extra renames applied after translation (a "version bridge" to a newer Minecraft). */
+    public final Map<String, String> bridge = new HashMap<>();
+
+    public Mappings withBridge(Map<String, String> renames) {
+        Mappings m = new Mappings();
+        m.classes.putAll(classes); m.classesObf.putAll(classesObf); m.methods.putAll(methods); m.fields.putAll(fields);
+        m.bridge.putAll(renames);
+        return m;
+    }
+
     public String mapClass(String internal) {
         String m = classes.get(internal);
-        if (m != null) return m;
+        if (m != null) return bridge.getOrDefault(m, m);
         // Inner class we don't know by full name: map the outer part.
         int i = internal.lastIndexOf('$');
         if (i > 0) {

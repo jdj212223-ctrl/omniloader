@@ -1,0 +1,30 @@
+package dev.omniloader.runtime;
+
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLLoader;
+import net.neoforged.neoforgespi.language.IModFileInfo;
+import net.neoforged.neoforgespi.language.IModInfo;
+import net.neoforged.neoforgespi.locating.IModFile;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+/** In-game adapter for Minecraft 1.21.1 / NeoForge 21.1. */
+public final class Platform {
+    public static final String MC = "1.21.1";
+    private Platform() {}
+
+    public static boolean isClient() { return FMLEnvironment.dist.isClient(); }
+    public static boolean isProduction() { return FMLLoader.isProduction(); }
+    public static List<? extends IModFileInfo> modFiles() { return FMLLoader.getLoadingModList().getModFiles(); }
+    public static List<? extends IModInfo> mods() { return FMLLoader.getLoadingModList().getMods(); }
+    public static List<Path> roots(IModFile f) { return List.of(f.getSecureJar().getRootPath()); }
+
+    public static String readText(IModFile f, String path) throws IOException {
+        Path p = f.findResource(path);
+        return Files.isRegularFile(p) ? Files.readString(p, StandardCharsets.UTF_8) : null;
+    }
+}

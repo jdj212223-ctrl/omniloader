@@ -1,0 +1,6 @@
+# Omniloader version bridge: Mojang names in Minecraft 1.21.1 -> Minecraft 26.1.
+# Used when a Fabric mod built for 1.21.x is loaded into a 26.1 game.
+# Format:  c <old/internal/Name> <new/internal/Name>     (class renamed or moved)
+# Grows over time; anything not listed is assumed unchanged.
+c net/minecraft/resources/ResourceLocation net/minecraft/resources/Identifier
+c net/minecraft/ResourceLocationException net/minecraft/IdentifierException

@@ -1,5 +1,8 @@
 package dev.omniloader.runtime.fabric;
 
+import dev.omniloader.runtime.Platform;
+import dev.omniloader.runtime.RefChecker;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -10,8 +13,6 @@ import net.fabricmc.loader.api.MappingResolver;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.ObjectShare;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforgespi.language.IModFileInfo;
 import net.neoforged.neoforgespi.language.IModInfo;
@@ -45,6 +46,16 @@ public final class FabricLoaderImpl implements FabricLoader {
     private static final Logger LOG = LoggerFactory.getLogger("Omniloader");
 
     public record Entry(ModContainerImpl mod, String value, String adapter) {}
+    public record MixinOwner(ModContainerImpl mod, String plugin) {}
+
+    private final Map<String, MixinOwner> mixinOwners = new HashMap<>();
+
+    /** Which mod a mixin package belongs to, and the mod's own mixin plugin (if any). */
+    public MixinOwner mixinOwner(String mixinPackage) {
+        setup();
+        String p = mixinPackage.endsWith(".") ? mixinPackage.substring(0, mixinPackage.length() - 1) : mixinPackage;
+        return mixinOwners.get(p);
+    }
 
     private final Map<String, ModContainerImpl> mods = new LinkedHashMap<>();
     private final Map<String, List<Entry>> entrypoints = new HashMap<>();
@@ -60,35 +71,70 @@ public final class FabricLoaderImpl implements FabricLoader {
         if (setUp) return;
         setUp = true;
         Map<String, ModContainerImpl> byNeoId = new HashMap<>();
+        Map<ModContainerImpl, String> toCheck = new LinkedHashMap<>();
+        Map<ModContainerImpl, JsonObject> descriptors = new HashMap<>();
+        Map<ModContainerImpl, Boolean> quiltMods = new HashMap<>();
         // 1) Fabric and Quilt mods that Omniloader converted.
-        for (IModFileInfo info : FMLLoader.getLoadingModList().getModFiles()) {
+        for (IModFileInfo info : Platform.modFiles()) {
             IModFile file = info.getFile();
-            Path marker = file.findResource("META-INF/omniloader/mod.json");
-            if (!Files.isRegularFile(marker)) continue;
             try {
-                JsonObject om = JsonParser.parseString(Files.readString(marker)).getAsJsonObject();
+                String marker = Platform.readText(file, "META-INF/omniloader/mod.json");
+                if (marker == null) continue;
+                JsonObject om = JsonParser.parseString(marker).getAsJsonObject();
                 boolean quilt = om.get("loader").getAsString().equals("quilt");
-                Path descriptor = file.findResource(quilt ? "quilt.mod.json" : "fabric.mod.json");
-                JsonObject json = JsonParser.parseString(Files.readString(descriptor, StandardCharsets.UTF_8)).getAsJsonObject();
+                JsonObject json = JsonParser.parseString(Platform.readText(file, quilt ? "quilt.mod.json" : "fabric.mod.json")).getAsJsonObject();
                 ModMetadataImpl meta = quilt ? ModMetadataImpl.fromQuilt(json) : ModMetadataImpl.fromFabric(json);
                 String neoId = om.get("neoId").getAsString();
-                ModContainerImpl c = new ModContainerImpl(meta, List.of(file.getSecureJar().getRootPath()), file.getFilePath(), true,
+                ModContainerImpl c = new ModContainerImpl(meta, Platform.roots(file), file.getFilePath(), true,
                         om.get("active").getAsBoolean(), neoId);
+                c.crossVersion = om.has("crossVersion") && om.get("crossVersion").getAsBoolean();
+                RefChecker.addProvided(Platform.readText(file, "META-INF/omniloader/adds.txt"));
+                String mixins = Platform.readText(file, "META-INF/omniloader/mixins.txt");
+                if (mixins != null) for (String l : mixins.split("\n")) {
+                    String[] p = l.split("\t");
+                    if (p.length == 2) mixinOwners.put(p[0], new MixinOwner(c, p[1].equals("-") ? null : p[1]));
+                }
+                if (c.active) toCheck.put(c, Platform.readText(file, "META-INF/omniloader/refs.txt"));
+                descriptors.put(c, json);
+                quiltMods.put(c, quilt);
                 mods.put(meta.getId(), c);
                 byNeoId.put(neoId, c);
                 for (String p : meta.getProvides()) mods.putIfAbsent(p, c);
-                if (c.active) readEntrypoints(c, quilt ? json.getAsJsonObject("quilt_loader").get("entrypoints") : json.get("entrypoints"));
+
             } catch (Exception e) {
                 LOG.error("[Omniloader] Could not read mod info from {}", file.getFileName(), e);
             }
         }
+        // Before starting anything: does every piece of Minecraft each mod uses actually exist here?
+        String provided = readResource("/META-INF/omniloader/provided-members.txt");
+        RefChecker.addProvided(provided);
+        LOG.info("[Omniloader] Checking {} Fabric/Quilt mod(s) against this game ({} added members known)", toCheck.size(), RefChecker.ADDED.size());
+        for (var e : toCheck.entrySet()) {
+            ModContainerImpl c = e.getKey();
+            List<String> missing = e.getValue() == null ? List.of() : RefChecker.missing(e.getValue());
+            if (!missing.isEmpty()) {
+                c.active = false;
+                String list = String.join(", ", missing.subList(0, Math.min(5, missing.size()))) + (missing.size() > 5 ? " (+" + (missing.size() - 5) + " more)" : "");
+                c.offReason = c.crossVersion
+                        ? "it was made for another Minecraft version and uses things Minecraft " + Platform.MC + " no longer has: " + list
+                        : "it uses things this game doesn't have (most likely parts of Fabric API Omniloader doesn't have yet): " + list;
+                LOG.warn("[Omniloader] Switching off {}: {}", c.getMetadata().getName(), c.offReason);
+            } else if (c.crossVersion) {
+                LOG.info("[Omniloader] {} was made for another Minecraft version; everything it uses exists in {} - starting it", c.getMetadata().getName(), Platform.MC);
+            }
+            if (c.active) {
+                JsonObject json = descriptors.get(c);
+                readEntrypoints(c, quiltMods.get(c) ? json.getAsJsonObject("quilt_loader").get("entrypoints") : json.get("entrypoints"));
+            }
+        }
+
         // 2) Everything else NeoForge loaded, so isModLoaded("sodium") etc. answer truthfully.
-        for (IModInfo info : FMLLoader.getLoadingModList().getMods()) {
+        for (IModInfo info : Platform.mods()) {
             if (byNeoId.containsKey(info.getModId())) continue;
             ModMetadataImpl meta = ModMetadataImpl.simple("builtin".equals(info.getModId()) ? "builtin" : "neoforge",
                     info.getModId(), info.getDisplayName(), info.getVersion().toString());
             meta.description = info.getDescription();
-            List<Path> roots = List.of(info.getOwningFile().getFile().getSecureJar().getRootPath());
+            List<Path> roots = Platform.roots(info.getOwningFile().getFile());
             ModContainerImpl c = new ModContainerImpl(meta, roots, info.getOwningFile().getFile().getFilePath(), false, true, info.getModId());
             mods.putIfAbsent(info.getModId(), c);
         }
@@ -98,13 +144,25 @@ public final class FabricLoaderImpl implements FabricLoader {
         addBuiltin("fabricloader", "Fabric Loader (Omniloader)", FABRIC_LOADER_VERSION);
         addBuiltin("java", "Java " + Runtime.version().feature(), String.valueOf(Runtime.version().feature()));
         // Parent/child links for mods that were bundled inside other mods.
-        for (IModFileInfo info : FMLLoader.getLoadingModList().getModFiles()) {
+        for (IModFileInfo info : Platform.modFiles()) {
             IModFile f = info.getFile();
             IModFile parent = f.getDiscoveryAttributes().parent();
             if (parent == null || f.getModInfos().isEmpty() || parent.getModInfos().isEmpty()) continue;
             ModContainerImpl child = byNeoId.get(f.getModInfos().get(0).getModId());
             ModContainerImpl par = byNeoId.get(parent.getModInfos().get(0).getModId());
             if (child != null && par != null) { child.parent = par; par.children.add(child); }
+        }
+    }
+
+    private static String readResource(String path) {
+        // Our own jar first (it's a module, so ask it directly), then the class loader.
+        try (var in = FabricLoaderImpl.class.getModule().getResourceAsStream(path.substring(1))) {
+            if (in != null) return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (Exception ignored) {}
+        try (var in = FabricLoaderImpl.class.getClassLoader().getResourceAsStream(path.substring(1))) {
+            return in == null ? null : new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -214,8 +272,8 @@ public final class FabricLoaderImpl implements FabricLoader {
         return c;
     }
 
-    @Override public boolean isDevelopmentEnvironment() { return !FMLLoader.isProduction(); }
-    @Override public EnvType getEnvironmentType() { return FMLEnvironment.dist.isClient() ? EnvType.CLIENT : EnvType.SERVER; }
+    @Override public boolean isDevelopmentEnvironment() { return !Platform.isProduction(); }
+    @Override public EnvType getEnvironmentType() { return Platform.isClient() ? EnvType.CLIENT : EnvType.SERVER; }
     @Override public Object getGameInstance() { return null; }
     @Override public Path getGameDir() { return FMLPaths.GAMEDIR.get(); }
     @Override public File getGameDirectory() { return getGameDir().toFile(); }

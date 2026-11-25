@@ -1,0 +1,31 @@
+apply from: rootProject.file('gradle/omni/common.gradle')
+
+// The part that plugs into NeoForge's mod discovery. Ends up as omniloader-<mc>.jar in mods/.
+base { archivesName = "omniloader-${project.mc_version}" }
+omniSources('loader/src/main/java', 'loader')
+
+def runtimeProject = project.path.replace(':loader', ':runtime')
+configurations { embeddedRuntime }
+dependencies { embeddedRuntime project(path: runtimeProject, configuration: 'runtimeElements') }
+
+processResources {
+    from(rootProject.file('loader/src/main/resources')) {
+        // Fabric's intermediary names are only needed for versions where Minecraft is shipped with scrambled names.
+        if (project.findProperty('intermediary') != 'true') exclude 'intermediary-*.jar'
+    }
+}
+
+jar {
+    archiveVersion = ''
+    dependsOn "${runtimeProject}:jar"
+    from(configurations.embeddedRuntime.filter { it.name.startsWith('omniloader-runtime') }) {
+        into 'META-INF/omniloader'
+        rename { 'omniloader-runtime.jar' }
+    }
+    manifest.attributes(
+        'Automatic-Module-Name': 'dev.omniloader.loader',
+        'Implementation-Title': 'Omniloader',
+        'Implementation-Version': project.version,
+        'Omniloader-Minecraft': project.mc_version
+    )
+}

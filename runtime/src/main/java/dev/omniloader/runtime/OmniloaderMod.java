@@ -6,7 +6,6 @@ import dev.omniloader.runtime.quilt.QuiltBridge;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,13 +29,13 @@ public final class OmniloaderMod {
         for (ModContainerImpl c : foreign) {
             sb.append("\n\t\t").append(c.meta().getType().equals("quilt") ? "[Quilt]  " : "[Fabric] ")
                     .append(c.getMetadata().getName()).append(' ').append(c.getMetadata().getVersion().getFriendlyString())
-                    .append(" (").append(c.getMetadata().getId()).append(')').append(c.active ? "" : "  - switched off");
+                    .append(" (").append(c.getMetadata().getId()).append(')').append(c.crossVersion ? "  [bridged from another Minecraft version]" : "").append(c.active ? "" : "  - switched off" + (c.offReason != null ? ": " + c.offReason : ""));
         }
-        LOG.info("[Omniloader] {} Fabric/Quilt mod(s) running on NeoForge:{}", foreign.size(), sb);
+        LOG.info("[Omniloader] {} Fabric/Quilt mod(s) on NeoForge for Minecraft {}:{}", foreign.size(), Platform.MC, sb);
 
         // Fabric API stand-ins: connect Fabric's events to NeoForge's.
         dev.omniloader.runtime.fabricapi.CommonBridge.init();
-        if (FMLEnvironment.dist.isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
+        if (Platform.isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
 
         run("preLaunch", "pre_launch");
         // Fabric mods register blocks/items straight into the game's registries while starting up.
@@ -49,7 +48,7 @@ public final class OmniloaderMod {
         started = true;
         long t0 = System.nanoTime();
         run("main", "init");
-        if (FMLEnvironment.dist.isClient()) run("client", "client_init");
+        if (Platform.isClient()) run("client", "client_init");
         else run("server", "server_init");
         LOG.info("[Omniloader] Fabric/Quilt mods started in {} ms", (System.nanoTime() - t0) / 1_000_000);
     }
@@ -78,7 +77,7 @@ public final class OmniloaderMod {
         if (o instanceof org.quiltmc.loader.api.entrypoint.PreLaunchEntrypoint p) { p.onPreLaunch(QuiltBridge.wrap(mod)); ran = true; }
         if (o instanceof net.fabricmc.api.ModInitializer m) { m.onInitialize(); ran = true; }
         if (o instanceof org.quiltmc.qsl.base.api.entrypoint.ModInitializer m) { m.onInitialize(QuiltBridge.wrap(mod)); ran = true; }
-        if (FMLEnvironment.dist.isClient()) {
+        if (Platform.isClient()) {
             if (o instanceof net.fabricmc.api.ClientModInitializer m) { m.onInitializeClient(); ran = true; }
             if (o instanceof org.quiltmc.qsl.base.api.entrypoint.client.ClientModInitializer m) { m.onInitializeClient(QuiltBridge.wrap(mod)); ran = true; }
         } else {

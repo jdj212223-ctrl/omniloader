@@ -8,4 +8,17 @@ plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
 }
 rootProject.name = 'omniloader'
-include 'runtime', 'loader', 'devrun', 'installer'
+
+// One folder per supported Minecraft version. Adding a version = adding versions/<mc>/ with its
+// gradle.properties plus small adapter classes; everything else is shared.
+file('versions').listFiles().findAll { new File(it, 'gradle.properties').exists() }.sort().each { dir ->
+    def mc = dir.name
+    include ":$mc"
+    project(":$mc").projectDir = dir
+    ['runtime', 'loader', 'devrun'].each { part ->
+        include ":$mc:$part"
+        project(":$mc:$part").projectDir = new File(dir, part)
+        project(":$mc:$part").buildFileName = "../../../gradle/omni/${part}.gradle"
+    }
+}
+include 'installer'

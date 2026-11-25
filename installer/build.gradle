@@ -1,18 +1,26 @@
 // Double-click installer: sets up NeoForge + Omniloader for the official launcher, Prism, or Modrinth.
+// Carries one Omniloader jar per supported Minecraft version (payload/omniloader-<mc>.jar).
+apply plugin: 'java'
+group = 'dev.omniloader'
+version = rootProject.omni_version
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+repositories { mavenCentral() }
 base { archivesName = 'omniloader-installer' }
 
+def loaderProjects = rootProject.subprojects.findAll { it.path.endsWith(':loader') }
 configurations { shade; embedded }
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     shade 'com.google.code.gson:gson:2.10.1'
-    embedded project(path: ':loader', configuration: 'runtimeElements')
+    loaderProjects.each { embedded project(path: it.path, configuration: 'runtimeElements') }
 }
 
 jar {
     archiveVersion = ''
-    dependsOn ':loader:jar'
+    dependsOn loaderProjects.collect { "${it.path}:jar" }
     from(configurations.shade.collect { zipTree(it) }) { exclude 'META-INF/**' }
-    from(configurations.embedded.filter { it.name == 'omniloader.jar' }) { into 'payload' }
+    from(configurations.embedded.filter { it.name ==~ /omniloader-[0-9.]+\.jar/ }) { into 'payload' }
     manifest.attributes('Main-Class': 'dev.omniloader.installer.Installer', 'Implementation-Version': project.version)
 }
 
