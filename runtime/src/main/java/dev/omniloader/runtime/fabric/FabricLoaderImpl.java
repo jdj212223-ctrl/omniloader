@@ -125,6 +125,8 @@ public final class FabricLoaderImpl implements FabricLoader {
         StringBuilder report = new StringBuilder("Omniloader report: mods that were switched off, and every piece of the game each one is missing.\n");
         String provided = readResource("/META-INF/omniloader/provided-members.txt");
         RefChecker.addProvided(provided);
+        String apiAdds = System.getProperty("omniloader.apiAdds");
+        if (apiAdds != null) try { RefChecker.addProvided(java.nio.file.Files.readString(java.nio.file.Path.of(apiAdds))); } catch (Exception ignored) {}
         LOG.info("[Omniloader] Checking {} Fabric/Quilt mod(s) against this game ({} added members known)", toCheck.size(), RefChecker.ADDED.size());
         for (var e : toCheck.entrySet()) {
             ModContainerImpl c = e.getKey();

@@ -34,9 +34,7 @@ public final class OmniloaderMod {
         LOG.info("[Omniloader] {} Fabric/Quilt mod(s) on NeoForge for Minecraft {}:{}", foreign.size(), Platform.MC, sb);
 
         // Fabric API stand-ins: connect Fabric's events to NeoForge's.
-        dev.omniloader.runtime.fabricapi.CommonBridge.init();
-        Platform.initFabricApiExtras(modBus);
-        if (Platform.isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
+        Platform.initFabricApi(modBus);
 
         run("preLaunch", "pre_launch");
         // NeoForge mods adapted from another Minecraft version / newer Java: start the ones that fit.
@@ -64,7 +62,7 @@ public final class OmniloaderMod {
             for (FabricLoaderImpl.Entry e : loader.rawEntrypoints(key)) {
                 String who = e.mod().getMetadata().getName();
                 try {
-                    Object o = loader.instantiate(e, Object.class);
+                    Object o = loader.instantiate(e, expectedType(key));
                     boolean ran = invoke(o, e.mod());
                     if (ran) LOG.info("[Omniloader] Started {} ({} -> {})", who, key, e.value());
                     else LOG.warn("[Omniloader] {}: entrypoint '{}' ({}) is not a type Omniloader knows how to start", who, key, e.value());
@@ -73,6 +71,21 @@ public final class OmniloaderMod {
                 }
             }
         }
+    }
+
+    /** What a startup entry must be, for entries that point at a method ("Class::method"). */
+    private static Class<?> expectedType(String key) {
+        return switch (key) {
+            case "main" -> net.fabricmc.api.ModInitializer.class;
+            case "client" -> net.fabricmc.api.ClientModInitializer.class;
+            case "server" -> net.fabricmc.api.DedicatedServerModInitializer.class;
+            case "preLaunch" -> net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint.class;
+            case "init" -> org.quiltmc.qsl.base.api.entrypoint.ModInitializer.class;
+            case "client_init" -> org.quiltmc.qsl.base.api.entrypoint.client.ClientModInitializer.class;
+            case "server_init" -> org.quiltmc.qsl.base.api.entrypoint.server.DedicatedServerModInitializer.class;
+            case "pre_launch" -> org.quiltmc.loader.api.entrypoint.PreLaunchEntrypoint.class;
+            default -> Object.class;
+        };
     }
 
     private static boolean invoke(Object o, ModContainerImpl mod) {

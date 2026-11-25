@@ -16,9 +16,41 @@ processResources {
     }
 }
 
+// Bundled Fabric API (Forgified Fabric API by Sinytra, Apache-2.0): downloaded once, checked, its modules packed in.
+def ffapiUrl = project.findProperty('ffapi_url')
+def ffapiDir = layout.buildDirectory.dir('ffapi')
+def fetchFfapi = tasks.register('fetchFabricApi') {
+    onlyIf { ffapiUrl != null }
+    def out = ffapiDir.get().file('ffapi.jar').asFile
+    outputs.file(out)
+    doLast {
+        out.parentFile.mkdirs()
+        if (!out.exists()) new URL(ffapiUrl).withInputStream { i -> out.withOutputStream { o -> o << i } }
+        def sha = java.security.MessageDigest.getInstance('SHA-1').digest(out.bytes).encodeHex().toString()
+        if (sha != project.ffapi_sha1) { out.delete(); throw new GradleException("Fabric API download was damaged (sha1 $sha)") }
+        def names = new java.util.zip.ZipFile(out).entries().collect { it.name }.findAll { it ==~ /META-INF\/jars\/fabric-.*\.jar/ }.collect { it.substring(it.lastIndexOf('/') + 1) }
+        new File(out.parentFile, 'index.txt').text = names.join('\n')
+    }
+}
+
+// only the 44 Fabric API modules; Omniloader stands in for Sinytra's Fabric Loader copy
+def unpackFfapi = tasks.register('unpackFabricApi', Sync) {
+    dependsOn fetchFfapi
+    onlyIf { ffapiUrl != null }
+    from({ zipTree(ffapiDir.get().file('ffapi.jar').asFile) }) { include 'META-INF/jars/fabric-*.jar'; eachFile { path = name } ; includeEmptyDirs = false }
+    from({ ffapiDir.get().file('index.txt').asFile })
+    into layout.buildDirectory.dir('ffapi-modules')
+}
+
 jar {
     archiveVersion = ''
     dependsOn "${runtimeProject}:jar"
+    from(rootProject.file('NOTICE')) { into 'META-INF' }
+    from(rootProject.file('LICENSE')) { into 'META-INF' }
+    if (ffapiUrl != null) {
+        dependsOn unpackFfapi
+        from(layout.buildDirectory.dir('ffapi-modules')) { into 'META-INF/omniloader/fabric-api' }
+    }
     from(configurations.embeddedRuntime.filter { it.name.startsWith('omniloader-runtime') }) {
         into 'META-INF/omniloader'
         rename { 'omniloader-runtime.jar' }

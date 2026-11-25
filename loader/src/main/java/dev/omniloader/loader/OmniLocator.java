@@ -53,6 +53,7 @@ public class OmniLocator implements IModFileCandidateLocator {
                 version(), Platform.isClient() ? "client" : "server");
         addRuntime(pipeline);
         scanModsFolder(pipeline);
+        addBundledFabricApi(pipeline);
     }
 
     static String version() {
@@ -80,6 +81,88 @@ public class OmniLocator implements IModFileCandidateLocator {
             pipeline.addPath(target, ModFileDiscoveryAttributes.DEFAULT, IncompatibleFileReporting.ERROR);
         } catch (IOException e) {
             pipeline.addIssue(ModLoadingIssue.error("fml.modloadingissue.technical_error", "Omniloader could not unpack its runtime: " + e));
+        }
+    }
+
+    private static final List<Path> bundledApi = new ArrayList<>();
+    private static boolean userHasFabricApi;
+
+    /**
+     * The real Fabric API (Sinytra's Forgified Fabric API, Apache-2.0) ships inside Omniloader.
+     * Unpack its modules and hand them to NeoForge, unless the player installed their own copy.
+     */
+    private static List<Path> bundledFabricApi() {
+        if (!bundledApi.isEmpty()) return bundledApi;
+        try {
+            Path dir = OmniPaths.root().resolve("fabric-api");
+            Files.createDirectories(dir);
+            String index;
+            try (InputStream in = OmniLocator.class.getResourceAsStream("/META-INF/omniloader/fabric-api/index.txt")) {
+                if (in == null) return bundledApi; // this Omniloader edition has no bundled Fabric API
+                index = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            for (String name : index.split("\n")) {
+                name = name.trim();
+                if (name.isEmpty()) continue;
+                Path out = dir.resolve(name);
+                if (!Files.isRegularFile(out)) {
+                    Path tmp = Files.createTempFile(dir, "ffapi", ".tmp");
+                    try (InputStream in = OmniLocator.class.getResourceAsStream("/META-INF/omniloader/fabric-api/" + name)) {
+                        if (in == null) continue;
+                        Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING);
+                }
+                bundledApi.add(out);
+            }
+            if (bundledApi.stream().anyMatch(p -> !p.getFileName().toString().isEmpty())) {
+                Path stamp = OmniPaths.root().resolve("fabric-api-additions.stamp");
+                String now = String.join(",", bundledApi.stream().map(p -> p.getFileName().toString()).toList()) + "|" + OmniPaths.CONVERTER_VERSION;
+                if (!Files.isRegularFile(stamp) || !Files.readString(stamp).equals(now)) {
+                    Files.deleteIfExists(OmniPaths.root().resolve("fabric-api-additions.txt"));
+                    Files.writeString(stamp, now);
+                }
+            }
+            // remove modules from an older Omniloader
+            try (Stream<Path> old = Files.list(dir)) {
+                old.filter(p -> !bundledApi.contains(p)).forEach(p -> { try { Files.deleteIfExists(p); } catch (IOException ignored) {} });
+            }
+        } catch (Exception e) {
+            LOG.warn("[Omniloader] Could not unpack the bundled Fabric API: {}", e.toString());
+        }
+        return bundledApi;
+    }
+
+    private void addBundledFabricApi(IDiscoveryPipeline pipeline) {
+        if (userHasFabricApi) {
+            LOG.info("[Omniloader] You installed Fabric API yourself; using yours instead of the bundled one");
+            return;
+        }
+        List<Path> mods = bundledFabricApi();
+        for (Path p : mods) pipeline.addPath(p, ModFileDiscoveryAttributes.DEFAULT, IncompatibleFileReporting.WARN_ALWAYS);
+        recordApiAdditions(mods);
+        if (!mods.isEmpty()) LOG.info("[Omniloader] Fabric API: {} modules (Forgified Fabric API by Sinytra) loaded from Omniloader", mods.size());
+    }
+
+    /** Lists what Fabric API's mixins add to Minecraft classes, so the startup check knows those methods exist. */
+    private static void recordApiAdditions(List<Path> modules) {
+        try {
+            Path out = OmniPaths.root().resolve("fabric-api-additions.txt");
+            if (!Files.isRegularFile(out)) {
+                Set<String> adds = new TreeSet<>(), ignored = new java.util.HashSet<>();
+                for (Path p : modules) try (ZipFile z = new ZipFile(p.toFile())) {
+                    for (ZipEntry e : java.util.Collections.list(z.entries())) {
+                        if (!e.getName().endsWith(".class")) continue;
+                        byte[] b = z.getInputStream(e).readAllBytes();
+                        if (new String(b, StandardCharsets.ISO_8859_1).contains("org/spongepowered/asm/mixin/Mixin"))
+                            dev.omniloader.loader.convert.RefCollector.collect(b, ignored, adds);
+                    }
+                }
+                Files.writeString(out, String.join("\n", adds));
+            }
+            System.setProperty("omniloader.apiAdds", out.toAbsolutePath().toString());
+        } catch (Exception e) {
+            LOG.warn("[Omniloader] Could not list Fabric API's additions: {}", e.toString());
         }
     }
 
@@ -116,6 +199,16 @@ public class OmniLocator implements IModFileCandidateLocator {
         } catch (Exception ex) {
             LOG.warn("[Omniloader] Could not list the Fabric API parts we provide: {}", ex.toString());
         }
+        if (!userHasFabricApi) for (Path p : bundledFabricApi()) {
+            try (ZipFile z = new ZipFile(p.toFile())) {
+                for (ZipEntry e : java.util.Collections.list(z.entries())) {
+                    String n = e.getName();
+                    if (n.startsWith("net/fabricmc/fabric/") && n.endsWith(".class") && !n.contains("$")) out.add(n.substring(0, n.length() - 6));
+                }
+                ZipEntry t = z.getEntry("META-INF/neoforge.mods.toml");
+                if (t != null) collectTomlIds(new String(z.getInputStream(t).readAllBytes(), StandardCharsets.UTF_8));
+            } catch (IOException ignored) {}
+        }
         return out;
     }
 
@@ -129,7 +222,9 @@ public class OmniLocator implements IModFileCandidateLocator {
                     ZipEntry neoToml = z.getEntry("META-INF/neoforge.mods.toml");
                     if (neoToml != null) {
                         neo++;
-                        collectTomlIds(new String(z.getInputStream(neoToml).readAllBytes(), StandardCharsets.UTF_8));
+                        String toml = new String(z.getInputStream(neoToml).readAllBytes(), StandardCharsets.UTF_8);
+                        collectTomlIds(toml);
+                        if (toml.matches("(?s).*modId\\s*=\\s*\"(fabric_api|connector)\".*")) userHasFabricApi = true;
                         continue;
                     }
                     ModMeta meta = metaOf(z);
@@ -190,9 +285,13 @@ public class OmniLocator implements IModFileCandidateLocator {
         OmniState.presentIds.addAll(meta.provides);
     }
 
+    private static final Pattern TOML_PROVIDES = Pattern.compile("provides\\s*=\\s*\\[([^\\]]*)\\]");
+
     private static void collectTomlIds(String toml) {
         Matcher m = TOML_ID.matcher(toml);
         while (m.find()) OmniState.presentIds.add(m.group(1));
+        Matcher p = TOML_PROVIDES.matcher(toml);
+        while (p.find()) for (String id : p.group(1).split(",")) OmniState.presentIds.add(id.trim().replace("\"", ""));
     }
 
     private static ModMeta metaOf(ZipFile z) throws IOException {

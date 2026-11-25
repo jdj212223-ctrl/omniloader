@@ -38,11 +38,25 @@ public final class RefCollector {
     public static void collect(byte[] cls, Set<String> out, Set<String> adds, boolean withJdk) {
         ClassReader cr = new ClassReader(cls);
         List<String> mixinTargets = new ArrayList<>();
+        List<String> ownInterfaces = new ArrayList<>();
+        String[] self = new String[1];
+        boolean[] isInterface = new boolean[1];
         cr.accept(new ClassVisitor(Opcodes.ASM9) {
             @Override
             public void visit(int v, int a, String name, String sig, String sup, String[] itfs) {
+                self[0] = name;
+                isInterface[0] = (a & Opcodes.ACC_INTERFACE) != 0;
                 if (game(sup)) out.add("c " + sup);
-                if (itfs != null) for (String i : itfs) if (game(i)) out.add("c " + i);
+                if (itfs != null) for (String i : itfs) { ownInterfaces.add(i); if (game(i)) out.add("c " + i); }
+            }
+
+            @Override
+            public void visitEnd() {
+                // A mixin's interfaces end up on its target class (interface injection), and so does a mixin interface itself.
+                for (String t : mixinTargets) {
+                    for (String i : ownInterfaces) adds.add("i " + t + " " + i);
+                    if (isInterface[0]) adds.add("i " + t + " " + self[0]);
+                }
             }
 
             @Override

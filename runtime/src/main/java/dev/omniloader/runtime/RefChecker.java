@@ -31,11 +31,15 @@ public final class RefChecker {
     /** Members other Fabric mods' mixins (and Omniloader itself) add to Minecraft classes: "owner name(desc)". */
     public static final Set<String> ADDED = new HashSet<>();
 
+    /** Interfaces that mixins bolt onto Minecraft classes: target -> interfaces. */
+    public static final Map<String, Set<String>> INJECTED = new HashMap<>();
+
     public static void addProvided(String lines) {
         if (lines == null) return;
         for (String l : lines.split("\n")) {
             String[] p = l.trim().split(" ");
             if (p.length == 3 && p[0].equals("m")) ADDED.add(p[1] + " " + p[2]);
+            if (p.length == 3 && p[0].equals("i")) INJECTED.computeIfAbsent(p[1], k -> new HashSet<>()).add(p[2]);
         }
     }
 
@@ -54,7 +58,7 @@ public final class RefChecker {
             }
             if (info(owner) == MISSING) { out.add(simple(owner)); continue; }
             if (p[0].equals("f") && !has(owner, p[2] + " " + p[3], true, new HashSet<>())) out.add(simple(owner) + "." + p[2]);
-            if (p[0].equals("m") && !p[2].equals("<clinit>") && !ADDED.contains(owner + " " + p[2] + p[3])
+            if (p[0].equals("m") && !p[2].equals("<clinit>")
                     && !has(owner, p[2] + p[3], false, new HashSet<>())) out.add(simple(owner) + "." + p[2] + "()");
         }
         return out.stream().distinct().toList();
@@ -96,9 +100,11 @@ public final class RefChecker {
         Info i = info(owner);
         if (i == MISSING) return owner.startsWith("java/"); // JDK types: trust them
         if ((field ? i.fields : i.methods).contains(key)) return true;
+        if (!field && ADDED.contains(owner + " " + key)) return true;
         if (!field && key.startsWith("<init>")) return false; // constructors are not inherited
         if (has(i.sup, key, field, seen)) return true;
         for (String it : i.itfs) if (has(it, key, field, seen)) return true;
+        for (String it : INJECTED.getOrDefault(owner, Set.of())) if (has(it, key, field, seen)) return true;
         return false;
     }
 

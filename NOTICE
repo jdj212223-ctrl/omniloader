@@ -1,0 +1,9 @@
+Omniloader
+Copyright 2026 Omniloader contributors (MIT, see LICENSE)
+
+The Minecraft 1.21.1 edition bundles Forgified Fabric API (https://github.com/Sinytra/ForgifiedFabricAPI),
+Copyright Sinytra and FabricMC, licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). Its modules are included unmodified.
+
+The Fabric and Quilt loader API stand-ins were written from scratch to match the public method names mods use.
+Fabric's "intermediary" name list (CC0) is bundled.

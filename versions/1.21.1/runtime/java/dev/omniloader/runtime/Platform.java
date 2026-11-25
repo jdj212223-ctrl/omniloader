@@ -28,8 +28,8 @@ public final class Platform {
         return Files.isRegularFile(p) ? Files.readString(p, StandardCharsets.UTF_8) : null;
     }
 
-    /** Fabric API networking, creative tabs, resource reloading, HUD. */
-    public static void initFabricApiExtras(net.neoforged.bus.api.IEventBus modBus) {
-        dev.omniloader.runtime.fabricapi.FabricApiExtras.init(modBus);
+    /** Starts Omniloader's Fabric API stand-ins (where this version uses them). */
+    public static void initFabricApi(net.neoforged.bus.api.IEventBus modBus) {
+        // The real Fabric API (Forgified Fabric API, bundled) does this on 1.21.1.
     }
 }

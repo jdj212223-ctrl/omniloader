@@ -27,8 +27,10 @@ public final class Platform {
         return c.containsFile(path) ? new String(c.readFile(path), StandardCharsets.UTF_8) : null;
     }
 
-    /** Fabric API networking, creative tabs, resource reloading, HUD. */
-    public static void initFabricApiExtras(net.neoforged.bus.api.IEventBus modBus) {
-        // Not ported to 26.1 yet: mods needing these parts are switched off by the safety check.
+    /** Starts Omniloader's Fabric API stand-ins (where this version uses them). */
+    public static void initFabricApi(net.neoforged.bus.api.IEventBus modBus) {
+        dev.omniloader.runtime.fabricapi.CommonBridge.init();
+        if (isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
+        // Networking, creative tabs, screens etc. are not ported to 26.1 yet.
     }
 }

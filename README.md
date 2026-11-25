@@ -47,7 +47,7 @@ Already have NeoForge 1.21.1? You can skip the installer: just put `omniloader.j
 | Mods bundled inside Fabric mods | ✅ Unpacked and loaded too |
 | Fabric "access wideners" | ✅ Converted to NeoForge's version (access transformers) |
 | Mods asking "is mod X installed?" | ✅ Sees Fabric, Quilt *and* NeoForge mods |
-| Fabric mods that need **Fabric API** | 🟡 Started. The most-used parts work (see below). Omniloader checks every Fabric API piece a mod uses: if all of them exist, the mod runs; if not, it's switched off with a message naming what's missing, instead of crashing |
+| Fabric mods that need **Fabric API** | ✅ The complete Fabric API is included (1.21.1). The most-used parts work (see below). Omniloader checks every Fabric API piece a mod uses: if all of them exist, the mod runs; if not, it's switched off with a message naming what's missing, instead of crashing |
 | **Forge** mods (the old Forge, not NeoForge) | ❌ Not yet. They're spotted and named in the log |
 | Mods made for **other Minecraft versions** | 🟡 New. See "Mods from other versions" below. The game won't crash over them |
 | Mods made for a **newer Java** than your game uses | ✅ Relabelled so Java 21 accepts them, then checked |
@@ -73,6 +73,9 @@ All of these were run in a real game on an Apple Silicon Mac:
   is there in-game and its network messages work when a client joins a server.
 - **Mouse Tweaks, Cherished Worlds, Better Advancements, Resource Pack Overrides** (Fabric, screen events): run.
 - **Just Enough Characters** (Fabric): switched off safely. It reaches into Fabric Loader's internals; use its NeoForge version.
+- **Carry On, Shulker Box Tooltip, Polymorph, Enhanced Block Entities, Athena (connected textures)** (big Fabric
+  mods using lots of Fabric API, including the renderer and model APIs), plus the **Cardinal Components** library
+  Carry On bundles: all start on server and client, and a client with them joined a server and drew the world.
 - **AppleSkin** (NeoForge): loads alongside all of the above, 12 mods in total.
 - The installer: Minecraft Launcher profile, Prism instance and Modrinth pack were made and checked
   in test folders. The Mac app finds Java and opens its window.
@@ -172,35 +175,19 @@ Project layout:
 
 1. ✅ **Loader core**: plugs into NeoForge, finds Fabric/Quilt/Forge/NeoForge jars, including bundled ones.
 2. ✅ **Fabric and Quilt**: name translation, mixins, access wideners, loader API, entrypoints.
-3. 🟡 **Fabric API**: stand-ins for the most-used parts, built on NeoForge's events.
-   This is the big one: most Fabric mods need Fabric API. Done so far:
-   - the event system (`Event`, `EventFactory`, phases)
-   - commands (`CommandRegistrationCallback`)
-   - server start/stop and data pack sync (`ServerLifecycleEvents`)
-   - server and client ticks (`ServerTickEvents`, `ClientTickEvents`)
-   - key bindings (`KeyBindingHelper`)
-   - networking (`PayloadTypeRegistry`, `ServerPlayNetworking`, `ClientPlayNetworking`, `PacketSender`, connection events)
-   - creative tabs (`ItemGroupEvents`, `FabricItemGroupEntries`, `FabricItemGroup`)
-   - resource reload listeners (`ResourceManagerHelper`, `IdentifiableResourceReloadListener`, `SimpleSynchronousResourceReloadListener`)
-   - HUD drawing (`HudRenderCallback`)
-   - client commands (`ClientCommandRegistrationCallback`, `ClientCommandManager`, `FabricClientCommandSource`)
-   - screens (`ScreenEvents`, `ScreenMouseEvents`, `ScreenKeyboardEvents`, `Screens`)
-   - player interaction (`UseItemCallback`, `UseBlockCallback`, `UseEntityCallback`, `AttackBlockCallback`, `AttackEntityCallback`, `PlayerBlockBreakEvents`)
-   - entities and players (`ServerLivingEntityEvents`, `ServerPlayerEvents`, `ServerEntityCombatEvents`, `ServerEntityWorldChangeEvents`, `ServerEntityEvents`, `EntitySleepEvents`, `PlayerLookup`)
-   - worlds and tags (`ServerWorldEvents`, `CommonLifecycleEvents`), client start/stop (`ClientLifecycleEvents`)
-   - Fabric API's 635 "transitive access wideners" (parts of Minecraft Fabric makes reachable for every mod)
-
-   (Data-pack-reload and before/after-save events exist so mods don't crash, but aren't sent yet.)
-
-   Next, by how many popular mods use them: resource reload listeners, networking
-   (`PayloadTypeRegistry`, `ServerPlayNetworking`, `ClientPlayNetworking`), client commands,
-   screen events, HUD rendering, item groups, then the renderer API.
+3. ✅ **Fabric API (1.21.1): the whole thing.** Omniloader for 1.21.1 ships the complete Fabric API: all 44 modules,
+   from **Forgified Fabric API** by Sinytra (Apache-2.0), a faithful port of Fabric API to NeoForge. Omniloader
+   unpacks it at startup and stands in for the Fabric Loader parts it needs. (If you install Forgified Fabric API
+   yourself, Omniloader uses yours.) The Minecraft 26.1 edition still uses Omniloader's own smaller set of stand-ins.
 4. ⏳ **Forge mods**: rewrite `net.minecraftforge` code to NeoForge's equivalents.
 
 For scale: Sinytra Connector, the best-known project that runs Fabric mods on NeoForge, took years
 to get where it is. Omniloader takes the same basic approach and is at the start of that road.
 
 ## Credits and licences
+
+- **Fabric API** for 1.21.1 comes from [Forgified Fabric API](https://github.com/Sinytra/ForgifiedFabricAPI) by Sinytra
+  and FabricMC, licensed Apache-2.0 (see `NOTICE`). Omniloader bundles its modules unchanged.
 
 - Fabric's "intermediary" name list (CC0) is bundled. Mojang's name list is downloaded from Mojang
   on first start (or reused from your computer) and isn't shipped, as Mojang's licence requires.
