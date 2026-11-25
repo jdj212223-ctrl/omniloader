@@ -47,12 +47,46 @@ public final class RefChecker {
             String owner = p[1];
             // Client-only parts of the game don't exist on a dedicated server; that's normal.
             if (!Platform.isClient() && (owner.startsWith("net/minecraft/client/") || owner.startsWith("com/mojang/blaze3d/"))) continue;
+            if (owner.startsWith("java/") || owner.startsWith("javax/")) {
+                // Java's own library: safe to look at directly. Matters for mods built for a newer Java.
+                if (!jdkHas(p)) out.add("Java " + Runtime.version().feature() + " lacks " + simple(owner) + (p.length > 2 ? "." + p[2] + (p[0].equals("m") ? "()" : "") : ""));
+                continue;
+            }
             if (info(owner) == MISSING) { out.add(simple(owner)); continue; }
             if (p[0].equals("f") && !has(owner, p[2] + " " + p[3], true, new HashSet<>())) out.add(simple(owner) + "." + p[2]);
             if (p[0].equals("m") && !p[2].equals("<clinit>") && !ADDED.contains(owner + " " + p[2] + p[3])
                     && !has(owner, p[2] + p[3], false, new HashSet<>())) out.add(simple(owner) + "." + p[2] + "()");
         }
         return out.stream().distinct().toList();
+    }
+
+    private static boolean jdkHas(String[] p) {
+        try {
+            Class<?> c = Class.forName(p[1].replace('/', '.'), false, ClassLoader.getPlatformClassLoader());
+            if (p[0].equals("c")) return true;
+            if (p[0].equals("f")) {
+                for (Class<?> k = c; k != null; k = k.getSuperclass()) for (var f : k.getDeclaredFields()) if (f.getName().equals(p[2])) return true;
+                for (var f : c.getFields()) if (f.getName().equals(p[2])) return true;
+                return false;
+            }
+            String want = p[2] + p[3];
+            if (p[2].equals("<init>")) {
+                for (var k : c.getDeclaredConstructors()) if (("<init>" + org.objectweb.asm.Type.getConstructorDescriptor(k)).equals(want)) return true;
+                return false;
+            }
+            java.util.ArrayDeque<Class<?>> todo = new java.util.ArrayDeque<>(List.of(c));
+            Set<Class<?>> seen = new HashSet<>();
+            while (!todo.isEmpty()) {
+                Class<?> k = todo.poll();
+                if (k == null || !seen.add(k)) continue;
+                for (var m : k.getDeclaredMethods()) if ((m.getName() + org.objectweb.asm.Type.getMethodDescriptor(m)).equals(want)) return true;
+                todo.add(k.getSuperclass());
+                todo.addAll(List.of(k.getInterfaces()));
+            }
+            return c.isInterface() && p[2].matches("hashCode|equals|toString|getClass");
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private static String simple(String internal) { return internal.substring(internal.lastIndexOf('/') + 1); }

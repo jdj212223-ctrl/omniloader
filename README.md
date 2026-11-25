@@ -6,7 +6,7 @@ Minecraft mods are made for different "mod loaders" (Fabric, Quilt, NeoForge, Fo
 you can only use one kind at a time. Omniloader is an add-on for NeoForge that also starts Fabric
 and Quilt mods. Put them all in the same `mods` folder and play.
 
-Version 0.1.0, for **Minecraft 1.21.1** (NeoForge 21.1).
+Version 0.2.0, for **Minecraft 1.21.1** (NeoForge 21.1). A Minecraft 26.1 edition is also included.
 
 ![Main Menu Credits, a Fabric mod, drawing its text on the title screen of a NeoForge game](docs/proof-title-screen.png)
 
@@ -19,7 +19,7 @@ a Fabric-only mod, running through Omniloader next to AppleSkin (a NeoForge mod)
 
 1. Open the Minecraft Launcher, Prism Launcher or the Modrinth App at least once.
 2. Run the installer:
-   - **Mac:** open `Omniloader-Installer-0.1.0.dmg` and double-click **Omniloader Installer**.
+   - **Mac:** open `Omniloader-Installer-0.2.0.dmg` and double-click **Omniloader Installer**.
      The first time, macOS may say it "can't check it for malicious software", because the app
      isn't signed with a paid Apple certificate. Right-click the app, choose **Open**, then **Open** again.
    - **Windows / Linux:** double-click `omniloader-installer.jar` (needs Java 17 or newer).
@@ -49,7 +49,8 @@ Already have NeoForge 1.21.1? You can skip the installer: just put `omniloader.j
 | Mods asking "is mod X installed?" | ✅ Sees Fabric, Quilt *and* NeoForge mods |
 | Fabric mods that need **Fabric API** | 🟡 Started. The most-used parts work (see below). Omniloader checks every Fabric API piece a mod uses: if all of them exist, the mod runs; if not, it's switched off with a message naming what's missing, instead of crashing |
 | **Forge** mods (the old Forge, not NeoForge) | ❌ Not yet. They're spotted and named in the log |
-| Minecraft versions other than 1.21.1 | ❌ Not yet |
+| Mods made for **other Minecraft versions** | 🟡 New. See "Mods from other versions" below. The game won't crash over them |
+| Mods made for a **newer Java** than your game uses | ✅ Relabelled so Java 21 accepts them, then checked |
 
 ### Tested for real
 
@@ -81,6 +82,34 @@ All of these were run in a real game on an Apple Silicon Mac:
 
 ---
 
+## Mods from other versions (and newer Java)
+
+Normally a mod made for another Minecraft version is refused, or crashes the game. Omniloader tries instead:
+
+1. **Newer Java:** mods built for Java 22–25 are relabelled so Minecraft 1.21.1's Java 21 accepts them.
+2. **Renamed parts:** where Mojang renamed something between versions (like `Identifier` → `ResourceLocation`),
+   the mod is translated back.
+3. **The check:** before the mod starts, Omniloader looks at *every* piece of Minecraft and Java it uses.
+   If all of it exists in your game, the mod runs. If not, it's held back with a message like
+   *"Not starting Chunky: it was made for Minecraft 1.20.5 and uses things Minecraft 1.21.1 doesn't have: ..."*.
+   Its data (recipes, worldgen) and textures are hidden too, so your world isn't affected.
+
+Tested on a 1.21.1 server, all in the same mods folder:
+
+| Mod | Made for | Result |
+|---|---|---|
+| Alternate Current (NeoForge) | Minecraft 1.21.0 | ✅ **Runs** (NeoForge alone would refuse it); its command works |
+| Chunky (NeoForge) | Minecraft 1.20.6 | Held back: Mojang rewrote the chunk code it uses |
+| Alternate Current (NeoForge) | Minecraft 1.21.3 | Held back: uses 1.21.2's new redstone system |
+| Vampirism 2.0 + FactionAPI | Minecraft 26.1.2, Java 25 | Held back: uses 700+ things 1.21.1 doesn't have. The server still starts fine |
+
+Honest limits: this works best for small mods and nearby versions. Big mods for very different
+versions (like Vampirism 2.0 on 1.21.1) can't run: they need hundreds of things that don't exist
+in your game. For those, use the mod's own 1.21.1 version (Vampirism 1.10.13 for 1.21.1).
+
+Omniloader also has a **Minecraft 26.1 edition** (`versions/26.1`). There, Vampirism 2.0 runs
+together with Fabric mods. That edition isn't in the installer yet.
+
 ## How it works (short version)
 
 1. **Finding mods.** When NeoForge looks through the `mods` folder, Omniloader checks every jar.
@@ -101,16 +130,19 @@ All of these were run in a real game on an Apple Silicon Mac:
 Needs Java 21.
 
 ```bash
-./gradlew :loader:jar            # loader/build/libs/omniloader.jar  (put this in mods/)
+./gradlew :1.21.1:loader:jar     # versions/1.21.1/loader/build/libs/omniloader-1.21.1.jar (put this in mods/)
+./gradlew :26.1:loader:jar       # the Minecraft 26.1 edition
 ./gradlew :installer:jar         # installer/build/libs/omniloader-installer.jar
-./gradlew :installer:macDmg      # installer/build/mac/Omniloader-Installer-0.1.0.dmg (on a Mac)
+./gradlew :installer:macDmg      # installer/build/mac/Omniloader-Installer-0.2.0.dmg (on a Mac)
 tools/fetch-testmods.sh          # downloads the real test mods into testmods/
-./gradlew :devrun:runServer      # test server (RCON on port 25599, password omnitest)
-./gradlew :devrun:runClient      # test client: saves a title-screen screenshot, then quits
+./gradlew :1.21.1:devrun:runServer   # test server (RCON on port 25599, password omnitest)
+./gradlew :1.21.1:devrun:runClient   # test client: saves a title-screen screenshot, then quits
+./gradlew :1.21.1:devrun:runServer -Ptestmods=testmods/1.21.1-cross   # the "other versions" test
 ```
 
 Project layout:
 
+- `versions/<minecraft>/`: the small adapter for each Minecraft version (adding a version = adding a folder).
 - `loader/`: the part that plugs into NeoForge's mod discovery: finds, translates and converts Fabric/Quilt jars.
 - `runtime/`: the in-game part: Fabric and Quilt loader API stand-ins and the code that starts the mods.
   It's packed inside `omniloader.jar` and unpacked automatically.

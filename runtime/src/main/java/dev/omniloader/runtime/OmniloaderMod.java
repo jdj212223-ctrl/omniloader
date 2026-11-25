@@ -38,6 +38,9 @@ public final class OmniloaderMod {
         if (Platform.isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
 
         run("preLaunch", "pre_launch");
+        // NeoForge mods adapted from another Minecraft version / newer Java: start the ones that fit.
+        dev.omniloader.runtime.HeldBackStarter.startAll();
+        ResourceHider.hideSwitchedOffMods();
         // Fabric mods register blocks/items straight into the game's registries while starting up.
         // NeoForge only allows that during its registry event, so that's where we start them.
         modBus.addListener(EventPriority.HIGHEST, RegisterEvent.class, e -> startMods());

@@ -32,26 +32,17 @@ public class OmniModReader implements IModFileReader {
     public @Nullable IModFile read(JarContents jar, ModFileDiscoveryAttributes attributes) {
         boolean fabric = jar.findFile("fabric.mod.json").isPresent();
         boolean quilt = jar.findFile("quilt.mod.json").isPresent();
-        if (!fabric && !quilt) return null;
-        // Jars that ship for several loaders at once: let NeoForge load its own version.
-        if (jar.findFile("META-INF/neoforge.mods.toml").isPresent()) return null;
+        boolean neo = jar.findFile("META-INF/neoforge.mods.toml").isPresent();
         try {
-            byte[] data = Files.readAllBytes(jar.getPrimaryPath());
-            var metaPeek = JarConverter.readMeta(JarConverter.readZip(data));
-            String disabled = metaPeek == null ? null : OmniState.disabled.get(metaPeek.id);
-            String dist = Platform.isClient() ? "client" : "server";
-            JarConverter.Result r = JarConverter.convert(data, dist, disabled);
-            if (r.active()) {
-                LOG.info("[Omniloader] Loading {} mod {} {} ({})", r.meta().loader, r.meta().name, r.meta().version, jar.getPrimaryPath().getFileName());
-            } else {
-                LOG.info("[Omniloader] Listing {} mod {} but not starting it, because {}", r.meta().loader, r.meta().name, r.reason());
-            }
+            ReaderCore.Outcome r = ReaderCore.read(jar.getPrimaryPath(), fabric, quilt, neo);
+            if (r == null) return null;
+            LOG.info("[Omniloader] {}", r.message());
             return JarModsDotTomlModFileReader.createModFile(JarContents.ofPath(r.jar()), attributes.withReader(this));
         } catch (Exception e) {
             LOG.error("[Omniloader] Failed to convert {}", jar.getPrimaryPath(), e);
             throw new ModLoadingException(ModLoadingIssue.error(OmniLocator.escape(
-                    "Omniloader could not convert " + (quilt ? "Quilt" : "Fabric") + " mod " + jar.getPrimaryPath().getFileName()
-                            + ": " + e.getMessage())).withAffectedPath(jar.getPrimaryPath()).withCause(e));
+                    "Omniloader could not convert " + jar.getPrimaryPath().getFileName() + ": " + e.getMessage()))
+                    .withAffectedPath(jar.getPrimaryPath()).withCause(e));
         }
     }
 

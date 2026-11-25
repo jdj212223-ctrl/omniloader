@@ -87,10 +87,19 @@ public final class JarConverter {
         // Mods built for an obfuscated Minecraft (1.21.x and older) use Fabric's "intermediary" names.
         // Mods built for 26.1+ already use Mojang's real names and need no translation.
         boolean intermediary = usesIntermediary(files);
-        boolean crossVersion = intermediary && !Platform.MC.equals(MappingLoader.MC);
+        // Which Minecraft the mod was made for: intermediary names mean an obfuscated version (we know 1.21.1's names);
+        // Mojang's own names on an obfuscated game mean 26.1 or newer.
+        String builtFrom = intermediary ? MappingLoader.MC : Platform.OBFUSCATED && usesMinecraft(files) ? "26.1" : Platform.MC;
+        String mcDep = meta.depends.get("minecraft");
+        boolean crossVersion = !builtFrom.equals(Platform.MC) || !VersionRanges.fabricAccepts(mcDep, Platform.MC_FULL);
+        java.util.Map<String, String> bridge = builtFrom.equals(Platform.MC) ? java.util.Map.of() : Bridges.load(builtFrom, Platform.MC);
         Mappings m = intermediary ? MappingLoader.get() : null;
-        if (crossVersion) m = m.withBridge(Bridges.load(MappingLoader.MC, Platform.MC));
+        if (m != null && !bridge.isEmpty()) m = m.withBridge(bridge);
         IntermediaryRemapper remapper = intermediary ? new IntermediaryRemapper(m) : null;
+        BridgeRemapper bridger = !intermediary && !bridge.isEmpty() ? new BridgeRemapper(bridge) : null;
+        int newestJava = 0;
+        for (var e : files.entrySet()) if (e.getKey().endsWith(".class")) newestJava = Math.max(newestJava, ClassVersions.java(ClassVersions.major(e.getValue())));
+        boolean newerJava = newestJava > ClassVersions.java(Platform.MAX_CLASS_VERSION);
 
         // Which mixin configs apply on this side, and which refmaps they use.
         List<String> mixinConfigs = new ArrayList<>();
@@ -125,15 +134,19 @@ public final class JarConverter {
             byte[] b = e.getValue();
             if (n.endsWith(".class")) {
                 try {
-                    b = NeoFieldGetters.apply(remapper != null ? remapper.remapClass(b) : b);
+                    b = b.clone();
+                    ClassVersions.downgrade(b, Platform.MAX_CLASS_VERSION);
+                    if (remapper != null) b = remapper.remapClass(b);
+                    else if (bridger != null) b = bridger.remapClass(b);
+                    b = NeoFieldGetters.apply(b);
                     classes++;
-                    if (active) RefCollector.collect(b, refs, adds);
+                    if (active) RefCollector.collect(b, refs, adds, newerJava);
                 }
                 catch (Exception ex) { LOG.warn("[Omniloader] {}: could not translate {}: {}", meta.id, n, ex.toString()); }
             } else if (refmaps.contains(n) && m != null) {
                 b = remapRefmap(b, m);
             } else if (active && meta.mixins.stream().anyMatch(x -> x.config().equals(n))) {
-                b = gateMixinConfig(b, crossVersion, mixinPlugins);
+                b = gateMixinConfig(b, crossVersion || newerJava, mixinPlugins);
             }
             result.put(n, b);
         }
@@ -149,7 +162,7 @@ public final class JarConverter {
             result.put("META-INF/omniloader/adds.txt", String.join("\n", adds).getBytes(StandardCharsets.UTF_8));
             result.put("META-INF/omniloader/mixins.txt", String.join("\n", mixinPlugins).getBytes(StandardCharsets.UTF_8));
         }
-        String builtFor = meta.depends.getOrDefault("minecraft", "?");
+        String builtFor = mcDep != null ? mcDep : builtFrom;
         result.put("META-INF/neoforge.mods.toml", toml(meta, mixinConfigs, at != null, crossVersion ? builtFor : null).getBytes(StandardCharsets.UTF_8));
         JsonObject info = new JsonObject();
         info.addProperty("loader", meta.loader);
@@ -157,6 +170,8 @@ public final class JarConverter {
         info.addProperty("neoId", meta.neoId);
         info.addProperty("active", active);
         info.addProperty("crossVersion", crossVersion);
+        info.addProperty("builtFor", crossVersion ? builtFor : Platform.MC);
+        if (newerJava) info.addProperty("builtForJava", newestJava);
         if (reason != null) info.addProperty("reason", reason);
         JsonArray provides = new JsonArray();
         meta.provides.forEach(provides::add);
@@ -184,9 +199,10 @@ public final class JarConverter {
             }
         }
         Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING);
-        LOG.info("[Omniloader] Converted {} mod '{}' ({} classes, {} mixin configs{}) in {} ms",
+        LOG.info("[Omniloader] Converted {} mod '{}' ({} classes, {} mixin configs{}{}) in {} ms",
                 meta.loader, meta.id, classes, mixinConfigs.size(),
                 crossVersion ? ", built for Minecraft " + builtFor + ": bridged to " + Platform.MC + ", may not fully work" : "",
+                newerJava ? ", built for Java " + newestJava + ": relabelled for Java " + ClassVersions.java(Platform.MAX_CLASS_VERSION) : "",
                 (System.nanoTime() - t0) / 1_000_000);
         return new Result(out, meta, active, reason);
     }
@@ -196,7 +212,7 @@ public final class JarConverter {
      * remembering the mod's own plugin. Mods made for another Minecraft version also get "soft" mixins:
      * one that no longer fits the game is skipped with a warning instead of stopping the whole game.
      */
-    private static byte[] gateMixinConfig(byte[] in, boolean soft, List<String> plugins) {
+    static byte[] gateMixinConfig(byte[] in, boolean soft, List<String> plugins) {
         try {
             JsonObject o = JsonParser.parseString(new String(in, StandardCharsets.UTF_8)).getAsJsonObject();
             String pkg = o.has("package") ? o.get("package").getAsString() : "";
@@ -252,6 +268,13 @@ public final class JarConverter {
             }
         }
         return sb.append('"').toString();
+    }
+
+    /** True if the jar's code touches Minecraft at all. */
+    static boolean usesMinecraft(Map<String, byte[]> files) {
+        for (var e : files.entrySet())
+            if (e.getKey().endsWith(".class") && new String(e.getValue(), StandardCharsets.ISO_8859_1).contains("net/minecraft/")) return true;
+        return false;
     }
 
     /** True if the jar's code uses Fabric's intermediary names (made for an obfuscated Minecraft). */

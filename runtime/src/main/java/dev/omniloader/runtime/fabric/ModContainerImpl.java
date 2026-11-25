@@ -20,6 +20,8 @@ public final class ModContainerImpl implements ModContainer {
     /** Made for a different Minecraft version (bridged by Omniloader). */
     public boolean crossVersion;
     public String offReason;
+    public String builtFor;
+    public int builtForJava;
     public final String neoId;
     public ModContainerImpl parent;
     public final List<ModContainer> children = new ArrayList<>();

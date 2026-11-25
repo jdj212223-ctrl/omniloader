@@ -67,7 +67,7 @@ public final class Install {
     // ------------------------------------------------------------------ payload
 
     public static byte[] loaderJar() throws IOException {
-        try (InputStream in = Install.class.getResourceAsStream("/payload/omniloader.jar")) {
+        try (InputStream in = Install.class.getResourceAsStream("/payload/omniloader-" + MC + ".jar")) {
             if (in == null) throw new IOException("This installer is damaged: Omniloader itself is missing from it.");
             return in.readAllBytes();
         }
@@ -82,7 +82,7 @@ public final class Install {
                 if (n.startsWith("omniloader") && n.endsWith(".jar")) Files.delete(p);
             }
         }
-        Files.write(mods.resolve("omniloader.jar"), loaderJar());
+        Files.write(mods.resolve("omniloader-" + MC + ".jar"), loaderJar());
         Path note = mods.resolve("PUT YOUR MODS HERE.txt");
         Files.writeString(note, """
                 Drop mods for Minecraft %s into this folder.
@@ -186,7 +186,7 @@ public final class Install {
             z.putNextEntry(new ZipEntry("modrinth.index.json"));
             z.write(GSON.toJson(index).getBytes(StandardCharsets.UTF_8));
             z.closeEntry();
-            z.putNextEntry(new ZipEntry("overrides/mods/omniloader.jar"));
+            z.putNextEntry(new ZipEntry("overrides/mods/omniloader-" + MC + ".jar"));
             z.write(loaderJar());
             z.closeEntry();
             z.putNextEntry(new ZipEntry("overrides/icon.png"));

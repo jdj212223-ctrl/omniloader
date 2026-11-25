@@ -11,9 +11,18 @@ import java.util.Map;
 public final class Bridges {
     private Bridges() {}
 
+    /** Renames from version {@code from} to {@code to}. Works in both directions (a bridge file read backwards). */
     public static Map<String, String> load(String from, String to) {
+        Map<String, String> fwd = read(from + "-to-" + to);
+        if (!fwd.isEmpty()) return fwd;
+        Map<String, String> back = new HashMap<>();
+        read(to + "-to-" + from).forEach((a, b) -> back.put(b, a));
+        return back;
+    }
+
+    private static Map<String, String> read(String name) {
         Map<String, String> out = new HashMap<>();
-        try (InputStream in = Bridges.class.getResourceAsStream("/bridges/" + from + "-to-" + to + ".txt")) {
+        try (InputStream in = Bridges.class.getResourceAsStream("/bridges/" + name + ".txt")) {
             if (in == null) return out;
             BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
             String line;

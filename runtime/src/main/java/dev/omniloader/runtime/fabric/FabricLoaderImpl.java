@@ -49,6 +49,8 @@ public final class FabricLoaderImpl implements FabricLoader {
     public record MixinOwner(ModContainerImpl mod, String plugin) {}
 
     private final Map<String, MixinOwner> mixinOwners = new HashMap<>();
+    /** Adapted NeoForge mods whose start-up Omniloader holds back until they pass the check. */
+    public final Map<ModContainerImpl, JsonObject> heldBack = new LinkedHashMap<>();
 
     /** Which mod a mixin package belongs to, and the mod's own mixin plugin (if any). */
     public MixinOwner mixinOwner(String mixinPackage) {
@@ -81,13 +83,26 @@ public final class FabricLoaderImpl implements FabricLoader {
                 String marker = Platform.readText(file, "META-INF/omniloader/mod.json");
                 if (marker == null) continue;
                 JsonObject om = JsonParser.parseString(marker).getAsJsonObject();
-                boolean quilt = om.get("loader").getAsString().equals("quilt");
-                JsonObject json = JsonParser.parseString(Platform.readText(file, quilt ? "quilt.mod.json" : "fabric.mod.json")).getAsJsonObject();
-                ModMetadataImpl meta = quilt ? ModMetadataImpl.fromQuilt(json) : ModMetadataImpl.fromFabric(json);
+                String loader = om.get("loader").getAsString();
+                boolean quilt = loader.equals("quilt"), neo = loader.equals("neoforge");
+                JsonObject json;
+                ModMetadataImpl meta;
+                if (neo) {
+                    // A NeoForge mod from another Minecraft version / newer Java that Omniloader adapted.
+                    IModInfo mi = file.getModInfos().get(0);
+                    meta = ModMetadataImpl.simple("neoforge", mi.getModId(), mi.getDisplayName(), mi.getVersion().toString());
+                    json = om;
+                } else {
+                    json = JsonParser.parseString(Platform.readText(file, quilt ? "quilt.mod.json" : "fabric.mod.json")).getAsJsonObject();
+                    meta = quilt ? ModMetadataImpl.fromQuilt(json) : ModMetadataImpl.fromFabric(json);
+                }
                 String neoId = om.get("neoId").getAsString();
-                ModContainerImpl c = new ModContainerImpl(meta, Platform.roots(file), file.getFilePath(), true,
+                ModContainerImpl c = new ModContainerImpl(meta, Platform.roots(file), file.getFilePath(), !neo,
                         om.get("active").getAsBoolean(), neoId);
                 c.crossVersion = om.has("crossVersion") && om.get("crossVersion").getAsBoolean();
+                c.builtFor = om.has("builtFor") ? om.get("builtFor").getAsString() : null;
+                c.builtForJava = om.has("builtForJava") ? om.get("builtForJava").getAsInt() : 0;
+                if (neo) heldBack.put(c, om);
                 RefChecker.addProvided(Platform.readText(file, "META-INF/omniloader/adds.txt"));
                 String mixins = Platform.readText(file, "META-INF/omniloader/mixins.txt");
                 if (mixins != null) for (String l : mixins.split("\n")) {
@@ -116,13 +131,15 @@ public final class FabricLoaderImpl implements FabricLoader {
                 c.active = false;
                 String list = String.join(", ", missing.subList(0, Math.min(5, missing.size()))) + (missing.size() > 5 ? " (+" + (missing.size() - 5) + " more)" : "");
                 c.offReason = c.crossVersion
-                        ? "it was made for another Minecraft version and uses things Minecraft " + Platform.MC + " no longer has: " + list
+                        ? "it was made for Minecraft " + c.builtFor + " and uses things Minecraft " + Platform.MC + " doesn't have: " + list
+                        : c.builtForJava > 0 ? "it was made for Java " + c.builtForJava + " and uses things Java " + Runtime.version().feature() + " doesn't have: " + list
                         : "it uses things this game doesn't have (most likely parts of Fabric API Omniloader doesn't have yet): " + list;
                 LOG.warn("[Omniloader] Switching off {}: {}", c.getMetadata().getName(), c.offReason);
-            } else if (c.crossVersion) {
-                LOG.info("[Omniloader] {} was made for another Minecraft version; everything it uses exists in {} - starting it", c.getMetadata().getName(), Platform.MC);
+            } else if (c.crossVersion || c.builtForJava > 0) {
+                LOG.info("[Omniloader] {} was made for {}; everything it uses exists here - starting it", c.getMetadata().getName(),
+                        c.crossVersion ? "Minecraft " + c.builtFor : "Java " + c.builtForJava);
             }
-            if (c.active) {
+            if (c.active && c.foreign) {
                 JsonObject json = descriptors.get(c);
                 readEntrypoints(c, quiltMods.get(c) ? json.getAsJsonObject("quilt_loader").get("entrypoints") : json.get("entrypoints"));
             }

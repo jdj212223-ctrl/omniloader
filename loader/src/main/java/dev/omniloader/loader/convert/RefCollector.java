@@ -23,11 +23,18 @@ public final class RefCollector {
     private RefCollector() {}
 
     static boolean game(String owner) {
-        return owner != null && (owner.startsWith("net/minecraft/") || owner.startsWith("com/mojang/blaze3d/"));
+        return owner != null && (owner.startsWith("net/minecraft/") || owner.startsWith("com/mojang/blaze3d/") || owner.startsWith("net/neoforged/neoforge/"));
+    }
+
+    static boolean jdk(String owner) {
+        return owner != null && (owner.startsWith("java/") || owner.startsWith("javax/"));
     }
 
     /** @param adds receives members this class (if it's a mixin) adds to Minecraft classes. */
-    public static void collect(byte[] cls, Set<String> out, Set<String> adds) {
+    public static void collect(byte[] cls, Set<String> out, Set<String> adds) { collect(cls, out, adds, false); }
+
+    /** @param withJdk also list Java library calls (for code built for a newer Java than the game runs on) */
+    public static void collect(byte[] cls, Set<String> out, Set<String> adds, boolean withJdk) {
         ClassReader cr = new ClassReader(cls);
         List<String> mixinTargets = new ArrayList<>();
         cr.accept(new ClassVisitor(Opcodes.ASM9) {
@@ -83,13 +90,13 @@ public final class RefCollector {
                         return null;
                     }
                     @Override public void visitFieldInsn(int op, String owner, String name, String desc) {
-                        if (game(owner)) out.add("f " + owner + " " + name + " " + desc);
+                        if (game(owner) || withJdk && jdk(owner)) out.add("f " + owner + " " + name + " " + desc);
                     }
                     @Override public void visitMethodInsn(int op, String owner, String name, String desc, boolean itf) {
-                        if (game(owner) && !owner.startsWith("[")) out.add("m " + owner + " " + name + " " + desc);
+                        if ((game(owner) || withJdk && jdk(owner)) && !owner.startsWith("[")) out.add("m " + owner + " " + name + " " + desc);
                     }
                     @Override public void visitTypeInsn(int op, String type) {
-                        if (game(type)) out.add("c " + type);
+                        if (game(type) || withJdk && jdk(type)) out.add("c " + type);
                     }
                     @Override public void visitInvokeDynamicInsn(String n, String d, Handle bsm, Object... args) {
                         for (Object a : args) if (a instanceof Handle h && game(h.getOwner()))
