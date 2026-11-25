@@ -38,7 +38,7 @@ import java.util.zip.ZipOutputStream;
 public final class Install {
     public static final String MC = "1.21.1";
     public static final String NEOFORGE = "21.1.264";
-    public static final String PROFILE_NAME = "Omniloader (Fabric + Quilt + NeoForge)";
+    public static final String PROFILE_NAME = "Omniloader " + MC + " (Fabric, Quilt, Forge, NeoForge)";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     private final Consumer<String> log;
@@ -73,16 +73,37 @@ public final class Install {
         }
     }
 
-    /** Puts Omniloader into a mods folder, replacing any older copy. */
-    void putLoader(Path mods) throws IOException {
-        Files.createDirectories(mods);
+    public static final String LOADER_VERSION = Installer.version();
+    public static final String VERSION_ID = "omniloader-" + MC;
+
+    /** Removes Omniloader jars from a mods folder (Omniloader is installed as a loader now). */
+    static void removeFromMods(Path mods) throws IOException {
+        if (!Files.isDirectory(mods)) return;
         try (Stream<Path> s = Files.list(mods)) {
             for (Path p : s.toList()) {
                 String n = p.getFileName().toString().toLowerCase();
                 if (n.startsWith("omniloader") && n.endsWith(".jar")) Files.delete(p);
             }
         }
+    }
+
+    /** Makes a mods folder with a note, without putting Omniloader in it. */
+    void prepareMods(Path mods) throws IOException {
+        Files.createDirectories(mods);
+        removeFromMods(mods);
+        writeNote(mods);
+    }
+
+    /** Puts Omniloader into a mods folder, replacing any older copy (for launchers that can't install loaders). */
+    void putLoader(Path mods) throws IOException {
+        Files.createDirectories(mods);
+        removeFromMods(mods);
         Files.write(mods.resolve("omniloader-" + MC + ".jar"), loaderJar());
+        writeNote(mods);
+        log.accept("Put Omniloader into " + mods);
+    }
+
+    private void writeNote(Path mods) throws IOException {
         Path note = mods.resolve("PUT YOUR MODS HERE.txt");
         Files.writeString(note, """
                 Drop mods for Minecraft %s into this folder.
@@ -90,9 +111,8 @@ public final class Install {
 
                 Fabric mods that need "Fabric API" are not supported yet: Omniloader
                 will switch them off and tell you, instead of crashing.
-                Forge mods (not NeoForge) are not supported yet.
+                Forge mods work too (most of them; the rest are switched off with a reason).
                 """.formatted(MC));
-        log.accept("Put Omniloader into " + mods);
     }
 
     // ------------------------------------------------------------------ official launcher
@@ -110,8 +130,38 @@ public final class Install {
         } else {
             log.accept("Skipping NeoForge (you asked me to).");
         }
+        // Omniloader as its own loader version: built on NeoForge's engine, Omniloader as a library.
+        byte[] jar = loaderJar();
+        String libPath = "dev/omniloader/omniloader/" + LOADER_VERSION + "/omniloader-" + LOADER_VERSION + ".jar";
+        Path lib = mcDir.resolve("libraries").resolve(libPath);
+        Files.createDirectories(lib.getParent());
+        Files.write(lib, jar);
+        JsonObject v = new JsonObject();
+        v.addProperty("id", VERSION_ID);
+        v.addProperty("inheritsFrom", version);
+        v.addProperty("type", "release");
+        String now0 = Instant.now().toString();
+        v.addProperty("time", now0);
+        v.addProperty("releaseTime", now0);
+        com.google.gson.JsonArray libs = new com.google.gson.JsonArray();
+        JsonObject l = new JsonObject();
+        l.addProperty("name", "dev.omniloader:omniloader:" + LOADER_VERSION);
+        JsonObject art = new JsonObject();
+        art.addProperty("path", libPath);
+        art.addProperty("sha1", HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(jar)));
+        art.addProperty("size", jar.length);
+        art.addProperty("url", "");
+        JsonObject dl = new JsonObject();
+        dl.add("artifact", art);
+        l.add("downloads", dl);
+        libs.add(l);
+        v.add("libraries", libs);
+        Path vdir = mcDir.resolve("versions").resolve(VERSION_ID);
+        Files.createDirectories(vdir);
+        writeAtomic(vdir.resolve(VERSION_ID + ".json"), GSON.toJson(v));
+        log.accept("Installed the Omniloader " + LOADER_VERSION + " loader (game version \"" + VERSION_ID + "\").");
         Path gameDir = mcDir.resolve("omniloader");
-        putLoader(gameDir.resolve("mods"));
+        prepareMods(gameDir.resolve("mods"));
 
         JsonObject root = JsonParser.parseString(Files.readString(profiles)).getAsJsonObject();
         Files.copy(profiles, mcDir.resolve("launcher_profiles.json.before-omniloader"), StandardCopyOption.REPLACE_EXISTING);
@@ -123,7 +173,7 @@ public final class Install {
         p.addProperty("lastUsed", now);
         p.addProperty("name", PROFILE_NAME);
         p.addProperty("type", "custom");
-        p.addProperty("lastVersionId", version);
+        p.addProperty("lastVersionId", VERSION_ID);
         p.addProperty("gameDir", gameDir.toString());
         p.addProperty("icon", "data:image/png;base64," + Base64.getEncoder().encodeToString(icon(128)));
         if (!p.has("javaArgs")) p.addProperty("javaArgs", "-Xmx4G -XX:+UseG1GC");
@@ -142,11 +192,26 @@ public final class Install {
                 {
                     "components": [
                         { "important": true, "uid": "net.minecraft", "version": "%s" },
-                        { "uid": "net.neoforged", "version": "%s" }
+                        { "uid": "net.neoforged", "version": "%s" },
+                        { "uid": "dev.omniloader", "version": "%s", "cachedName": "Omniloader", "cachedVersion": "%s" }
                     ],
                     "formatVersion": 1
                 }
-                """.formatted(MC, NEOFORGE));
+                """.formatted(MC, NEOFORGE, LOADER_VERSION, LOADER_VERSION));
+        // Omniloader as a Prism component: its jar is a library of the instance.
+        Files.createDirectories(inst.resolve("patches"));
+        Files.writeString(inst.resolve("patches").resolve("dev.omniloader.json"), """
+                {
+                    "formatVersion": 1,
+                    "uid": "dev.omniloader",
+                    "name": "Omniloader",
+                    "version": "%s",
+                    "requires": [ { "uid": "net.neoforged" } ],
+                    "libraries": [ { "name": "dev.omniloader:omniloader:%s", "MMC-hint": "local" } ]
+                }
+                """.formatted(LOADER_VERSION, LOADER_VERSION));
+        Files.createDirectories(inst.resolve("libraries"));
+        Files.write(inst.resolve("libraries").resolve("omniloader-" + LOADER_VERSION + ".jar"), loaderJar());
         Path cfg = inst.resolve("instance.cfg");
         if (!Files.exists(cfg)) Files.writeString(cfg, """
                 [General]
@@ -161,8 +226,8 @@ public final class Install {
         Files.write(icons.resolve("omniloader.png"), icon(128));
         // Prism uses "minecraft" for new instances (".minecraft" for old ones).
         Path game = Files.isDirectory(inst.resolve(".minecraft")) ? inst.resolve(".minecraft") : inst.resolve("minecraft");
-        putLoader(game.resolve("mods"));
-        log.accept("Made a Prism Launcher instance called \"Omniloader\". Prism downloads Minecraft and NeoForge itself when you press Launch.");
+        prepareMods(game.resolve("mods"));
+        log.accept("Made a Prism Launcher instance called \"Omniloader\" with Omniloader as its loader. Prism downloads Minecraft and NeoForge's engine itself when you press Launch.");
         return game.resolve("mods");
     }
 

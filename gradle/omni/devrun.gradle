@@ -25,12 +25,24 @@ neoForge {
 }
 
 ext.loaderProject = project.path.replace(':devrun', ':loader')
+// -PasLoader: put Omniloader on the game's library path (like a real loader install) instead of in mods/
+def omniloaderAsLoader = project.hasProperty('asLoader')
+configurations { additionalRuntimeClasspath }
+if (omniloaderAsLoader && project.mc_version == '1.21.1') {
+    dependencies {
+        additionalRuntimeClasspath files(rootProject.file("versions/${project.mc_version}/loader/build/libs/omniloader-${project.mc_version}.jar")) {
+            builtBy "${project.ext.loaderProject}:jar"
+        }
+    }
+    neoForge { runs { configureEach { additionalRuntimeClasspathConfiguration.extendsFrom(configurations.additionalRuntimeClasspath) } } }
+}
+
 def syncMods(String dir) {
     return { ->
         def mods = file("$dir/mods")
         mods.mkdirs()
         project.copy {
-            from(project(loaderProject).tasks.jar.archiveFile)
+            if (!project.hasProperty('asLoader')) from(project(loaderProject).tasks.jar.archiveFile)
             from(rootProject.file(project.findProperty("testmods") ?: "testmods/${project.mc_version}")) { include '*.jar' }
             into mods
         }

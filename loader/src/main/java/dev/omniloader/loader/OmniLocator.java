@@ -49,6 +49,12 @@ public class OmniLocator implements IModFileCandidateLocator {
 
     @Override
     public void findCandidates(ILaunchContext context, IDiscoveryPipeline pipeline) {
+        // Installed both as a loader and as a jar in mods/? Only the first copy takes charge.
+        if (System.getProperty("omniloader.active") != null) {
+            LOG.warn("[Omniloader] A second copy of Omniloader was found (installed as a loader AND in the mods folder); ignoring it");
+            return;
+        }
+        System.setProperty("omniloader.active", version());
         LOG.info("[Omniloader] Omniloader {} for Minecraft " + Platform.MC + " starting on the {} side - Fabric, Quilt and NeoForge mods welcome",
                 version(), Platform.isClient() ? "client" : "server");
         addRuntime(pipeline);

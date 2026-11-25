@@ -88,7 +88,7 @@ public final class Installer {
         JPanel head = new JPanel(new BorderLayout(14, 0));
         try { head.add(new JLabel(new ImageIcon(Install.icon(72))), BorderLayout.WEST); } catch (Exception ignored) {}
         JLabel title = new JLabel("<html><span style='font-size:18pt'><b>Omniloader</b></span><br>"
-                + "Play <b>Fabric</b>, <b>Quilt</b> and <b>NeoForge</b> mods together in Minecraft " + Install.MC + ".</html>");
+                + "Play <b>Fabric</b>, <b>Quilt</b>, <b>Forge</b> and <b>NeoForge</b> mods together in Minecraft " + Install.MC + ".</html>");
         head.add(title, BorderLayout.CENTER);
         root.add(head, BorderLayout.NORTH);
 

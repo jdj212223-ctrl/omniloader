@@ -9,3 +9,4 @@ testmods/**/*.jar
 .DS_Store
 dist/
 reference/
+prodtest/
