@@ -1,0 +1,49 @@
+// Omniloader's own engine: starts plain Minecraft itself (no NeoForge, no Fabric Loader) and loads mods.
+apply plugin: 'java-library'
+group = 'dev.omniloader'
+version = rootProject.omni_version
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+base { archivesName = 'omniloader-engine' }
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }   // Mixin (the Fabric project's build of SpongePowered Mixin, MIT)
+}
+dependencies {
+    // All of these come with Minecraft / the launcher at runtime
+    compileOnly 'org.ow2.asm:asm:9.6'
+    compileOnly 'org.ow2.asm:asm-tree:9.6'
+    compileOnly 'org.ow2.asm:asm-commons:9.6'
+    compileOnly 'org.ow2.asm:asm-util:9.6'
+    compileOnly 'net.fabricmc:sponge-mixin:0.15.3+mixin.0.8.7'
+    compileOnly 'com.google.code.gson:gson:2.10.1'
+    compileOnly 'org.slf4j:slf4j-api:2.0.9'
+    compileOnly 'org.jetbrains:annotations:24.1.0'
+}
+
+// Shared code from the NeoForge edition that doesn't need NeoForge, plus engine-specific stand-ins (overlay).
+def shared = tasks.register('sharedSources', Sync) {
+    from(rootProject.file('loader/src/main/java')) {
+        include 'dev/omniloader/loader/convert/**', 'dev/omniloader/loader/mapping/**', 'dev/omniloader/loader/OmniPaths.java', 'dev/omniloader/loader/OmniState.java'
+        exclude 'dev/omniloader/loader/convert/NeoJarConverter.java', 'dev/omniloader/loader/convert/ForgeConverter.java', 'dev/omniloader/loader/convert/VersionRanges.java'
+    }
+    from(rootProject.file('runtime/src/main/java')) {
+        include 'net/fabricmc/api/**', 'net/fabricmc/loader/api/**', 'org/quiltmc/**', 'dev/omniloader/runtime/quilt/**'
+        include 'dev/omniloader/runtime/fabric/VersionImpl.java', 'dev/omniloader/runtime/fabric/ModMetadataImpl.java', 'dev/omniloader/runtime/fabric/CustomValueImpl.java'
+        include 'dev/omniloader/runtime/fabric/ModContainerImpl.java', 'dev/omniloader/runtime/fabric/MappingResolverImpl.java', 'dev/omniloader/runtime/fabric/ObjectShareImpl.java'
+        include 'dev/omniloader/runtime/OmniMixinPlugin.java'
+    }
+    into layout.buildDirectory.dir('shared-src')
+}
+sourceSets.main.java.srcDirs = ['src/main/java', 'overlay', layout.buildDirectory.dir('shared-src')]
+tasks.named('compileJava') { dependsOn shared }
+processResources {
+    from(rootProject.file('loader/src/main/resources')) { include 'intermediary-*.jar', 'bridges/**' }
+}
+jar {
+    archiveVersion = ''
+    from(rootProject.file('NOTICE')) { into 'META-INF' }
+    from(rootProject.file('LICENSE')) { into 'META-INF' }
+    manifest.attributes('Main-Class': 'dev.omniloader.engine.ClientMain', 'Implementation-Title': 'Omniloader', 'Implementation-Version': project.version)
+}

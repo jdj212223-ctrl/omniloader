@@ -23,6 +23,7 @@ public final class NeoFieldGetters {
             "net/minecraft/world/level/block/FlowerPotBlock.potted", "getPotted");
 
     public static byte[] apply(byte[] in) {
+        if (!dev.omniloader.loader.Platform.NEOFORGE) return in; // plain Minecraft has no such getters
         String text = new String(in, java.nio.charset.StandardCharsets.ISO_8859_1);
         if (!(text.contains("climateSettings") || text.contains("specialEffects") || text.contains("potted") || text.contains("settings"))) return in;
         ClassReader cr = new ClassReader(in);

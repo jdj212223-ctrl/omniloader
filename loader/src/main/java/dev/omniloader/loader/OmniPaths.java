@@ -1,6 +1,5 @@
 package dev.omniloader.loader;
 
-import net.neoforged.fml.loading.FMLPaths;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,7 +16,7 @@ public final class OmniPaths {
     private OmniPaths() {}
 
     public static Path root() {
-        return dir(FMLPaths.GAMEDIR.get().resolve(".omniloader"));
+        return dir(Platform.gameDir().resolve(".omniloader"));
     }
 
     public static Path cache() { return dir(root().resolve("converted")); }

@@ -16,7 +16,7 @@ public final class AccessWidenerConverter {
      * so those rules are dropped (the mod's reads are redirected to the getters instead, see {@link NeoFieldGetters}).
      */
     static boolean protectedByNeoForge(String owner, String field) {
-        return NeoFieldGetters.GETTERS.containsKey(owner.replace('.', '/') + "." + field);
+        return dev.omniloader.loader.Platform.NEOFORGE && NeoFieldGetters.GETTERS.containsKey(owner.replace('.', '/') + "." + field);
     }
 
     public static String convert(String aw, Mappings m) {

@@ -188,6 +188,11 @@ public final class MappingLoader {
     }
 
     /** Finds Mojang's mapping file on disk, or downloads it once. Verified by checksum. */
+    /** Mojang's name list for the client ("client") or server ("server"), found on disk or downloaded once. */
+    public static Path mojangFile(String side) throws IOException {
+        return side.equals("client") ? mojangFile(side, CLIENT_URL, CLIENT_SHA1) : mojangFile(side, SERVER_URL, SERVER_SHA1);
+    }
+
     private static Path mojangFile(String side, String url, String sha1) throws IOException {
         Path target = OmniPaths.mappings().resolve("mojang-" + side + "-" + MC + ".txt");
         if (Files.isRegularFile(target) && sha1.equals(OmniPaths.sha1(target))) return target;

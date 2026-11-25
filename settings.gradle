@@ -22,3 +22,4 @@ file('versions').listFiles().findAll { new File(it, 'gradle.properties').exists(
     }
 }
 include 'installer'
+include 'engine'

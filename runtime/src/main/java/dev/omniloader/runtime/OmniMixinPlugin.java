@@ -25,8 +25,12 @@ public final class OmniMixinPlugin implements IMixinConfigPlugin {
         mod = owner.mod();
         if (owner.plugin() != null && mod.active) {
             try {
-                original = (IMixinConfigPlugin) Class.forName(owner.plugin(), true, OmniMixinPlugin.class.getClassLoader())
-                        .getDeclaredConstructor().newInstance();
+                ClassLoader cl = Thread.currentThread().getContextClassLoader();
+                if (cl == null) cl = OmniMixinPlugin.class.getClassLoader();
+                Class<?> pc;
+                try { pc = Class.forName(owner.plugin(), true, cl); }
+                catch (ClassNotFoundException e) { pc = Class.forName(owner.plugin(), true, OmniMixinPlugin.class.getClassLoader()); }
+                original = (IMixinConfigPlugin) pc.getDeclaredConstructor().newInstance();
                 original.onLoad(mixinPackage);
             } catch (Throwable e) {
                 // One mod's broken plugin must not take the whole game down: switch that mod off instead.
