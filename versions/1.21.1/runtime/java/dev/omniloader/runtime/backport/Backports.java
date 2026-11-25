@@ -35,5 +35,33 @@ public final class Backports {
         return player.teleportTo(level, x, y, z, (Set<RelativeMovement>) relative, yRot, xRot);
     }
 
+    // ---- Forge mods
+
+    /** Forge tolerates registering an object with no event handlers; NeoForge throws. */
+    public static void forgeRegister(net.neoforged.bus.api.IEventBus bus, Object target) {
+        try { bus.register(target); }
+        catch (IllegalArgumentException e) { if (!String.valueOf(e.getMessage()).contains("no @SubscribeEvent")) throw e; }
+    }
+
+    public static double forgeScrollY(net.neoforged.neoforge.client.event.ScreenEvent.MouseScrolled e) { return e.getScrollDeltaY(); }
+    public static double forgeScrollX(net.neoforged.neoforge.client.event.ScreenEvent.MouseScrolled e) { return e.getScrollDeltaX(); }
+
+    public static void forgeConfigScreen(java.util.function.Function<net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.screens.Screen> f) {
+        forgeConfigScreen((java.util.function.BiFunction<net.minecraft.client.Minecraft, net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.screens.Screen>) (mc, s) -> f.apply(s));
+    }
+
+    public static void forgeConfigScreen(java.util.function.BiFunction<net.minecraft.client.Minecraft, net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.screens.Screen> f) {
+        var c = net.neoforged.fml.ModLoadingContext.get().getActiveContainer();
+        dev.omniloader.runtime.forge.ForgeExtensionPoints.register(c, net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(f));
+    }
+
+    /** Forge's ForgeSpawnEggItem.fromEntityType: NeoForge's deferred spawn eggs, then vanilla's. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static net.minecraft.world.item.SpawnEggItem forgeSpawnEgg(net.minecraft.world.entity.EntityType type) {
+        var e = net.neoforged.neoforge.common.DeferredSpawnEggItem.deferredOnlyById(type);
+        return e != null ? e : net.minecraft.world.item.SpawnEggItem.byId(type);
+    }
+
     public static Holder<?> unused() { return null; }
 }

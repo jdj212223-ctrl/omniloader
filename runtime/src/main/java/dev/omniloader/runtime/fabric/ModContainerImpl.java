@@ -22,6 +22,7 @@ public final class ModContainerImpl implements ModContainer {
     public String offReason;
     public String builtFor;
     public int builtForJava;
+    public boolean forge;
     public final String neoId;
     public ModContainerImpl parent;
     public final List<ModContainer> children = new ArrayList<>();

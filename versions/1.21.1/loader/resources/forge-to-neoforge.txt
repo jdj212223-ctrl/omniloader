@@ -310,3 +310,4 @@ c net/minecraftforge/server/permission/nodes/PermissionNode net/neoforged/neofor
 c net/minecraftforge/server/permission/nodes/PermissionNode$PermissionResolver net/neoforged/neoforge/server/permission/nodes/PermissionNode$PermissionResolver
 c net/minecraftforge/server/permission/nodes/PermissionType net/neoforged/neoforge/server/permission/nodes/PermissionType
 c net/minecraftforge/server/permission/nodes/PermissionTypes net/neoforged/neoforge/server/permission/nodes/PermissionTypes
+c net/minecraftforge/common/ForgeSpawnEggItem net/neoforged/neoforge/common/DeferredSpawnEggItem

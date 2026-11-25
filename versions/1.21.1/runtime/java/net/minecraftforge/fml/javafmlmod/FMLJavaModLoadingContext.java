@@ -26,4 +26,5 @@ public final class FMLJavaModLoadingContext {
         dev.omniloader.runtime.forge.ForgeExtensionPoints.register(container, (Class) point, (Supplier) extension);
     }
     public void registerDisplayTest(Object displayTest) {}
+    public void registerDisplayTest(Supplier<?> displayTest) {}
 }

@@ -85,7 +85,7 @@ public final class FabricLoaderImpl implements FabricLoader {
                 if (marker == null) continue;
                 JsonObject om = JsonParser.parseString(marker).getAsJsonObject();
                 String loader = om.get("loader").getAsString();
-                boolean quilt = loader.equals("quilt"), neo = loader.equals("neoforge");
+                boolean quilt = loader.equals("quilt"), neo = loader.equals("neoforge") || loader.equals("forge");
                 JsonObject json;
                 ModMetadataImpl meta;
                 if (neo) {
@@ -104,6 +104,7 @@ public final class FabricLoaderImpl implements FabricLoader {
                 c.builtFor = om.has("builtFor") ? om.get("builtFor").getAsString() : null;
                 c.builtForJava = om.has("builtForJava") ? om.get("builtForJava").getAsInt() : 0;
                 if (!c.active && om.has("reason")) c.offReason = om.get("reason").getAsString();
+                c.forge = loader.equals("forge");
                 if (neo) heldBack.put(c, om);
                 RefChecker.addProvided(Platform.readText(file, "META-INF/omniloader/adds.txt"));
                 String mixins = Platform.readText(file, "META-INF/omniloader/mixins.txt");
@@ -140,7 +141,9 @@ public final class FabricLoaderImpl implements FabricLoader {
                 for (String m : missing) report.append("   - ").append(m).append('\n');
                 c.active = false;
                 String list = String.join(", ", missing.subList(0, Math.min(5, missing.size()))) + (missing.size() > 5 ? " (+" + (missing.size() - 5) + " more)" : "");
-                c.offReason = c.crossVersion
+                c.offReason = c.forge
+                        ? "it's a Forge mod that uses parts of Forge Omniloader can't translate yet: " + list
+                        : c.crossVersion
                         ? "it was made for Minecraft " + c.builtFor + " and uses things Minecraft " + Platform.MC + " doesn't have: " + list
                         : c.builtForJava > 0 ? "it was made for Java " + c.builtForJava + " and uses things Java " + Runtime.version().feature() + " doesn't have: " + list
                         : "it uses things this game doesn't have (most likely parts of Fabric API Omniloader doesn't have yet): " + list;
@@ -231,6 +234,15 @@ public final class FabricLoaderImpl implements FabricLoader {
                 entrypoints.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(new Entry(c, value, adapter));
             }
         }
+    }
+
+    /** Adds a mod switched off late (while starting) to the report file. */
+    public void noteSwitchedOff(ModContainerImpl c) {
+        try {
+            java.nio.file.Path rp = getGameDir().resolve(".omniloader").resolve("report.txt");
+            java.nio.file.Files.writeString(rp, "\n== " + c.getMetadata().getName() + " (" + c.getMetadata().getId() + ")\n   " + c.offReason + "\n",
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (Exception ignored) {}
     }
 
     /** Switches a mod off after startup checks (e.g. its mixin plugin failed). Its startup code won't run. */

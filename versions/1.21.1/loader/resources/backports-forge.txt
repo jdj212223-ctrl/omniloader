@@ -1,0 +1,16 @@
+# Forge 1.21.1 vs NeoForge 21.1 differences, applied to Forge mods after their names are translated.
+# Same format as backports.txt (helpers live in dev/omniloader/runtime/backport/Backports).
+# Forge lets a class with no event handlers be registered; NeoForge throws. Keep Forge's behaviour.
+m net/neoforged/bus/api/IEventBus register (Ljava/lang/Object;)V -> forgeRegister (Lnet/neoforged/bus/api/IEventBus;Ljava/lang/Object;)V
+# Forge's scroll events call it getDeltaX/Y, NeoForge getScrollDeltaX/Y
+m net/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled getDeltaY ()D -> forgeScrollY (Lnet/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled;)D
+m net/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled$Pre getDeltaY ()D -> forgeScrollY (Lnet/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled;)D
+m net/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled$Post getDeltaY ()D -> forgeScrollY (Lnet/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled;)D
+m net/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled getDeltaX ()D -> forgeScrollX (Lnet/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled;)D
+m net/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled$Pre getDeltaX ()D -> forgeScrollX (Lnet/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled;)D
+m net/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled$Post getDeltaX ()D -> forgeScrollX (Lnet/neoforged/neoforge/client/event/ScreenEvent$MouseScrolled;)D
+# Forge's one-line config screen registration
+m net/neoforged/neoforge/common/NeoForge registerConfigScreen (Ljava/util/function/Function;)V -> forgeConfigScreen (Ljava/util/function/Function;)V
+m net/neoforged/neoforge/common/NeoForge registerConfigScreen (Ljava/util/function/BiFunction;)V -> forgeConfigScreen (Ljava/util/function/BiFunction;)V
+# ForgeSpawnEggItem (renamed to NeoForge's DeferredSpawnEggItem) lookup by entity type
+m net/neoforged/neoforge/common/DeferredSpawnEggItem fromEntityType (Lnet/minecraft/world/entity/EntityType;)Lnet/minecraft/world/item/SpawnEggItem; -> forgeSpawnEgg (Lnet/minecraft/world/entity/EntityType;)Lnet/minecraft/world/item/SpawnEggItem;

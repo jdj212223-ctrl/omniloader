@@ -33,4 +33,9 @@ public final class Platform {
         if (isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
         // Networking, creative tabs, screens etc. are not ported to 26.1 yet.
     }
+
+    /** Forge-style events for Forge mods (only called when Forge mods are running). */
+    public static void initForge() {
+        // Forge mods are not supported on this edition.
+    }
 }

@@ -44,6 +44,11 @@ public final class ReaderCore {
         if (!Files.isRegularFile(primary)) return null; // folders (development setups) are left alone
         Peek p = peek(primary);
         if (p == null) return null;
+        // Forge mods (mods.toml, not NeoForge's neoforge.mods.toml)
+        if (p.toml == null && p.forgeToml && dev.omniloader.loader.convert.ForgeConverter.supported()) {
+            Path out = dev.omniloader.loader.convert.ForgeConverter.convert(Files.readAllBytes(primary), p.newestJava);
+            return new Outcome(out, "Translating Forge mod " + primary.getFileName() + " to NeoForge");
+        }
         NeoJarConverter.Check check = NeoJarConverter.check(p.toml, p.newestJava);
         if (!check.needed()) return null;
         Path out = NeoJarConverter.convert(Files.readAllBytes(primary), check);
@@ -52,13 +57,14 @@ public final class ReaderCore {
                 + (check.newestJava() > ClassVersions.java(Platform.MAX_CLASS_VERSION) ? ", Java " + check.newestJava() : "") + ")");
     }
 
-    private record Peek(String toml, int newestJava) {}
+    private record Peek(String toml, int newestJava, boolean forgeToml) {}
 
     /** Reads the mod description and the Java version of a few class files, without unpacking the whole jar. */
     private static Peek peek(Path jar) throws IOException {
         if (jar.getFileSystem() == FileSystems.getDefault()) {
             try (ZipFile z = new ZipFile(jar.toFile())) {
                 ZipEntry t = z.getEntry("META-INF/neoforge.mods.toml");
+                boolean forge = z.getEntry("META-INF/mods.toml") != null;
                 String toml = t == null ? null : new String(z.getInputStream(t).readAllBytes(), StandardCharsets.UTF_8);
                 int newest = 0, seen = 0;
                 for (Enumeration<? extends ZipEntry> en = z.entries(); en.hasMoreElements() && seen < 8; ) {
@@ -68,22 +74,24 @@ public final class ReaderCore {
                     newest = Math.max(newest, ClassVersions.java(ClassVersions.major(head)));
                     seen++;
                 }
-                return new Peek(toml, newest);
+                return new Peek(toml, newest, forge);
             }
         }
         // Jar inside another jar: read it in full.
         String toml = null;
+        boolean forge = false;
         int newest = 0, seen = 0;
         try (ZipInputStream z = new ZipInputStream(new ByteArrayInputStream(Files.readAllBytes(jar)))) {
             ZipEntry e;
             while ((e = z.getNextEntry()) != null) {
                 if (e.getName().equals("META-INF/neoforge.mods.toml")) toml = new String(z.readAllBytes(), StandardCharsets.UTF_8);
+                else if (e.getName().equals("META-INF/mods.toml")) forge = true;
                 else if (seen < 8 && e.getName().endsWith(".class") && !e.getName().startsWith("META-INF/")) {
                     newest = Math.max(newest, ClassVersions.java(ClassVersions.major(z.readNBytes(8))));
                     seen++;
                 }
             }
         }
-        return new Peek(toml, newest);
+        return new Peek(toml, newest, forge);
     }
 }

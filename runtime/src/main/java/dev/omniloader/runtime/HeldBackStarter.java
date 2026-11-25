@@ -32,6 +32,9 @@ public final class HeldBackStarter {
 
     public static void startAll() {
         Dist dist = Platform.isClient() ? Dist.CLIENT : Dist.DEDICATED_SERVER;
+        if (FabricLoaderImpl.INSTANCE.heldBack.keySet().stream().anyMatch(c -> c.forge && c.active)) Platform.initForge();
+        var loading = net.neoforged.fml.ModLoadingContext.get();
+        ModContainer previous = loading.getActiveContainer();
         for (var e : FabricLoaderImpl.INSTANCE.heldBack.entrySet()) {
             ModContainerImpl c = e.getKey();
             String name = c.getMetadata().getName();
@@ -43,6 +46,7 @@ public final class HeldBackStarter {
             if (container == null) continue;
             IEventBus modBus = container.getEventBus();
             ClassLoader cl = HeldBackStarter.class.getClassLoader();
+            loading.setActiveContainer(container); // what the mod sees as "the mod being loaded right now"
             try {
                 for (JsonElement s : e.getValue().getAsJsonArray("subscribers")) {
                     JsonObject o = s.getAsJsonObject();
@@ -55,10 +59,19 @@ public final class HeldBackStarter {
                     if (!forDist(o, dist)) continue;
                     construct(Class.forName(o.get("class").getAsString(), true, cl), modBus, container, dist);
                 }
-                LOG.info("[Omniloader] Started {} (made for {})", name,
-                        c.crossVersion ? "Minecraft " + c.builtFor : "Java " + c.builtForJava);
+                LOG.info("[Omniloader] Started {} ({})", name, c.forge ? "Forge mod, translated to NeoForge"
+                        : "made for " + (c.crossVersion ? "Minecraft " + c.builtFor : "Java " + c.builtForJava));
             } catch (Throwable t) {
-                throw new RuntimeException(name + " (adapted by Omniloader) crashed while starting", t);
+                // One adapted mod failing to start must not take the whole game down.
+                Throwable root = t;
+                while (root.getCause() != null) root = root.getCause();
+                c.active = false;
+                c.offReason = "it failed while starting: " + root
+                        + (String.valueOf(root).contains("invalid dist") ? " (it's a client-only mod; it isn't needed on a server)" : "");
+                LOG.error("[Omniloader] {} failed while starting and was switched off: {}", name, c.offReason, t);
+                FabricLoaderImpl.INSTANCE.noteSwitchedOff(c);
+            } finally {
+                loading.setActiveContainer(previous);
             }
         }
     }
@@ -79,6 +92,8 @@ public final class HeldBackStarter {
             if (types[i].isAssignableFrom(bus.getClass()) || types[i] == IEventBus.class) args[i] = bus;
             else if (types[i].isInstance(container)) args[i] = container;
             else if (types[i] == Dist.class) args[i] = dist;
+            else if (types[i].getName().equals("net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext"))
+                args[i] = types[i].getConstructor(ModContainer.class).newInstance(container); // Forge mods ask for their loading context
             else throw new IllegalStateException("don't know how to provide " + types[i].getName() + " to " + cls.getName());
         }
         best.setAccessible(true);

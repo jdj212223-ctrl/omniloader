@@ -32,4 +32,9 @@ public final class Platform {
     public static void initFabricApi(net.neoforged.bus.api.IEventBus modBus) {
         // The real Fabric API (Forgified Fabric API, bundled) does this on 1.21.1.
     }
+
+    /** Forge-style events for Forge mods (only called when Forge mods are running). */
+    public static void initForge() {
+        dev.omniloader.runtime.forge.ForgeBridge.init();
+    }
 }

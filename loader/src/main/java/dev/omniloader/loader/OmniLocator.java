@@ -236,7 +236,10 @@ public class OmniLocator implements IModFileCandidateLocator {
                     }
                     if (z.getEntry("META-INF/mods.toml") != null) {
                         forge++;
-                        LOG.warn("[Omniloader] {} is a Forge mod. Forge mods are not supported yet (planned for a later version).", p.getFileName());
+                        if (dev.omniloader.loader.convert.ForgeConverter.supported()) {
+                            LOG.info("[Omniloader] {} is a Forge mod: translating it to NeoForge", p.getFileName());
+                            collectTomlIds(new String(z.getInputStream(z.getEntry("META-INF/mods.toml")).readAllBytes(), StandardCharsets.UTF_8));
+                        } else LOG.warn("[Omniloader] {} is a Forge mod. This Omniloader edition can't run Forge mods yet.", p.getFileName());
                     }
                 } catch (IOException | RuntimeException e) {
                     LOG.warn("[Omniloader] Could not look inside {}: {}", p.getFileName(), e.toString());
@@ -271,7 +274,7 @@ public class OmniLocator implements IModFileCandidateLocator {
             pipeline.addIssue(ModLoadingIssue.warning(escape("Omniloader switched off " + f.meta.name + " because " + reason + "."))
                     .withAffectedPath(f.file));
         }
-        LOG.info("[Omniloader] Mods folder: {} Fabric/Quilt, {} NeoForge, {} Forge (Forge not supported yet), {} switched off",
+        LOG.info("[Omniloader] Mods folder: {} Fabric/Quilt, {} NeoForge, {} Forge, {} switched off",
                 fabricMods.size(), neo, forge, OmniState.disabled.size());
     }
 

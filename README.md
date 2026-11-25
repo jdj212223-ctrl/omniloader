@@ -48,7 +48,7 @@ Already have NeoForge 1.21.1? You can skip the installer: just put `omniloader.j
 | Fabric "access wideners" | ✅ Converted to NeoForge's version (access transformers) |
 | Mods asking "is mod X installed?" | ✅ Sees Fabric, Quilt *and* NeoForge mods |
 | Fabric mods that need **Fabric API** | ✅ The complete Fabric API is included (1.21.1). The most-used parts work (see below). Omniloader checks every Fabric API piece a mod uses: if all of them exist, the mod runs; if not, it's switched off with a message naming what's missing, instead of crashing |
-| **Forge** mods (the old Forge, not NeoForge) | ❌ Not yet. They're spotted and named in the log |
+| **Forge** mods (the old Forge, not NeoForge) | 🟡 New. Translated to NeoForge: 39 of 44 popular Forge mods tested run. Mods using Forge networking or capabilities are held back for now |
 | Mods made for **other Minecraft versions** | 🟡 New. See "Mods from other versions" below. The game won't crash over them |
 | Mods made for a **newer Java** than your game uses | ✅ Relabelled so Java 21 accepts them, then checked |
 
@@ -179,7 +179,19 @@ Project layout:
    from **Forgified Fabric API** by Sinytra (Apache-2.0), a faithful port of Fabric API to NeoForge. Omniloader
    unpacks it at startup and stands in for the Fabric Loader parts it needs. (If you install Forgified Fabric API
    yourself, Omniloader uses yours.) The Minecraft 26.1 edition still uses Omniloader's own smaller set of stand-ins.
-4. ⏳ **Forge mods**: rewrite `net.minecraftforge` code to NeoForge's equivalents.
+4. 🟡 **Forge mods (1.21.1).** NeoForge began as a copy of Forge, so most of Forge's API has a NeoForge twin.
+   Omniloader translates Forge mods to NeoForge: 313 Forge names are renamed to their twins (table built from
+   127 popular Forge mods), and the parts that work differently get Forge-shaped stand-ins: registries
+   (`DeferredRegister`, `RegistryObject`, `ForgeRegistries`), the loading context, `DistExecutor`, config screens,
+   `TickEvent`. `mods.toml` is converted too (dependencies, mixins, access transformers). Every Forge mod goes through
+   the same safety check as everything else: if something it needs isn't translated yet, it's held back and named in
+   the report. Bundled copies of libraries NeoForge already has (MixinExtras) are dropped.
+
+   Tested with 44 popular Forge mods together on one client: **39 run**, the rest are held back with reasons,
+   no crashes. Examples that work: Chunky (commands + world generation), Clumps (XP merging), Mouse Tweaks,
+   Cherished Worlds, No Chat Reports, In-Game Account Switcher (its button shows on the title screen), all of
+   Macaw's building mods, TerraBlender, Sound Physics Remastered, Just Enough Breeding.
+   Still to do: Forge networking (`SimpleChannel`), capabilities, and the few mods built with Forge's old scrambled names.
 
 For scale: Sinytra Connector, the best-known project that runs Fabric mods on NeoForge, took years
 to get where it is. Omniloader takes the same basic approach and is at the start of that road.

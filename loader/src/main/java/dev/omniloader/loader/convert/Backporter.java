@@ -26,9 +26,16 @@ public final class Backporter {
 
     private static final List<MethodRule> METHODS = new ArrayList<>();
     private static final List<FieldRule> FIELDS = new ArrayList<>();
+    private static final List<MethodRule> FORGE_METHODS = new ArrayList<>();
+    private static final List<FieldRule> FORGE_FIELDS = new ArrayList<>();
 
     static {
-        try (InputStream in = Backporter.class.getResourceAsStream("/backports.txt")) {
+        load("/backports.txt", METHODS, FIELDS);
+        load("/backports-forge.txt", FORGE_METHODS, FORGE_FIELDS);
+    }
+
+    private static void load(String resource, List<MethodRule> methods, List<FieldRule> fields) {
+        try (InputStream in = Backporter.class.getResourceAsStream(resource)) {
             if (in != null) {
                 BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
                 String line;
@@ -36,8 +43,8 @@ public final class Backporter {
                     line = line.trim();
                     if (line.isEmpty() || line.startsWith("#")) continue;
                     String[] p = line.split("\\s+");
-                    if (p[0].equals("m") && p.length == 7) METHODS.add(new MethodRule(p[1], p[2], p[3], p[5], p[6]));
-                    if (p[0].equals("f") && p.length == 6) FIELDS.add(new FieldRule(p[1], p[2], p[3]));
+                    if (p[0].equals("m") && p.length == 7) methods.add(new MethodRule(p[1], p[2], p[3], p[5], p[6]));
+                    if (p[0].equals("f") && p.length == 6) fields.add(new FieldRule(p[1], p[2], p[3]));
                 }
             }
         } catch (Exception ignored) {}
@@ -45,8 +52,14 @@ public final class Backporter {
 
     public static boolean any() { return !METHODS.isEmpty() || !FIELDS.isEmpty(); }
 
-    public static byte[] apply(byte[] in) {
-        if (!any()) return in;
+    /** Newer-Minecraft calls -> stand-ins (backports.txt). */
+    public static byte[] apply(byte[] in) { return apply(in, METHODS, FIELDS); }
+
+    /** Forge-vs-NeoForge differences -> stand-ins (backports-forge.txt). */
+    public static byte[] applyForge(byte[] in) { return apply(in, FORGE_METHODS, FORGE_FIELDS); }
+
+    private static byte[] apply(byte[] in, List<MethodRule> METHODS, List<FieldRule> FIELDS) {
+        if (METHODS.isEmpty() && FIELDS.isEmpty()) return in;
         ClassReader cr = new ClassReader(in);
         ClassWriter cw = new ClassWriter(0);
         boolean[] changed = {false};
@@ -56,9 +69,10 @@ public final class Backporter {
                 return new MethodVisitor(Opcodes.ASM9, super.visitMethod(access, name, desc, sig, ex)) {
                     @Override
                     public void visitMethodInsn(int op, String owner, String mname, String mdesc, boolean itf) {
-                        if (op != Opcodes.INVOKESTATIC && owner.startsWith("net/minecraft/")) {
+                        if (owner.startsWith("net/minecraft/") || owner.startsWith("net/minecraftforge/") || owner.startsWith("net/neoforged/") || owner.startsWith("net/fabricmc/")) {
                             for (MethodRule r : METHODS) {
-                                if (r.name.equals(mname) && r.desc.equals(mdesc) && (r.owner.equals("*") || r.owner.equals(owner))) {
+                                // "*" rules are for calls on objects only; static calls need the exact owner
+                                if (r.name.equals(mname) && r.desc.equals(mdesc) && (r.owner.equals(owner) || r.owner.equals("*") && op != Opcodes.INVOKESTATIC)) {
                                     changed[0] = true;
                                     super.visitMethodInsn(Opcodes.INVOKESTATIC, HELPER, r.helper, r.helperDesc, false);
                                     return;
