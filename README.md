@@ -67,7 +67,8 @@ All of these were run in a real game on an Apple Silicon Mac:
 - **Clumps** (Fabric + Fabric API): 20 XP orbs of different sizes merged into one, which only Clumps does.
 - **Dynamic FPS** (Fabric + Fabric API, client): runs and reacts when the window loses focus.
   This mod writes Minecraft names straight into its mixins, which Omniloader also translates.
-- **Nature's Compass** (needs Fabric API networking): switched off with a clear message, no crash.
+- **Nature's Compass** (Fabric + Fabric API networking and creative tabs): runs on server and client, and a
+  client with it joined a server with it.
 - **AppleSkin** (NeoForge): loads alongside all of the above, 12 mods in total.
 - The installer: Minecraft Launcher profile, Prism instance and Modrinth pack were made and checked
   in test folders. The Mac app finds Java and opens its window.
@@ -89,7 +90,10 @@ Normally a mod made for another Minecraft version is refused, or crashes the gam
 1. **Newer Java:** mods built for Java 22–25 are relabelled so Minecraft 1.21.1's Java 21 accepts them.
 2. **Renamed parts:** where Mojang renamed something between versions (like `Identifier` → `ResourceLocation`),
    the mod is translated back.
-3. **The check:** before the mod starts, Omniloader looks at *every* piece of Minecraft and Java it uses.
+3. **Backports:** for things Mojang added after 1.21.1, Omniloader has small stand-ins (for example
+   `getMinY()` becomes 1.21.1's `getMinBuildHeight()`). The list lives in `versions/1.21.1/loader/resources/backports.txt`
+   and grows over time.
+4. **The check:** before the mod starts, Omniloader looks at *every* piece of Minecraft and Java it uses.
    If all of it exists in your game, the mod runs. If not, it's held back with a message like
    *"Not starting Chunky: it was made for Minecraft 1.20.5 and uses things Minecraft 1.21.1 doesn't have: ..."*.
    Its data (recipes, worldgen) and textures are hidden too, so your world isn't affected.
@@ -99,9 +103,13 @@ Tested on a 1.21.1 server, all in the same mods folder:
 | Mod | Made for | Result |
 |---|---|---|
 | Alternate Current (NeoForge) | Minecraft 1.21.0 | ✅ **Runs** (NeoForge alone would refuse it); its command works |
-| Chunky (NeoForge) | Minecraft 1.20.6 | Held back: Mojang rewrote the chunk code it uses |
+| Chunky (NeoForge) | Minecraft **1.21.4** | ✅ **Runs** thanks to 4 backports; generated chunks |
+| Chunky (NeoForge) | Minecraft 1.20.6 | Held back: 2 pieces of chunk code Mojang changed (backport candidate) |
 | Alternate Current (NeoForge) | Minecraft 1.21.3 | Held back: uses 1.21.2's new redstone system |
 | Vampirism 2.0 + FactionAPI | Minecraft 26.1.2, Java 25 | Held back: uses 700+ things 1.21.1 doesn't have. The server still starts fine |
+
+Every start, Omniloader writes `.omniloader/report.txt` in your game folder: each switched-off mod and
+*everything* it's missing.
 
 Honest limits: this works best for small mods and nearby versions. Big mods for very different
 versions (like Vampirism 2.0 on 1.21.1) can't run: they need hundreds of things that don't exist
@@ -161,6 +169,11 @@ Project layout:
    - server start/stop and data pack sync (`ServerLifecycleEvents`)
    - server and client ticks (`ServerTickEvents`, `ClientTickEvents`)
    - key bindings (`KeyBindingHelper`)
+   - networking (`PayloadTypeRegistry`, `ServerPlayNetworking`, `ClientPlayNetworking`, `PacketSender`, connection events)
+   - creative tabs (`ItemGroupEvents`, `FabricItemGroupEntries`, `FabricItemGroup`)
+   - resource reload listeners (`ResourceManagerHelper`, `IdentifiableResourceReloadListener`, `SimpleSynchronousResourceReloadListener`)
+   - HUD drawing (`HudRenderCallback`)
+   - Fabric API's 635 "transitive access wideners" (parts of Minecraft Fabric makes reachable for every mod)
 
    (Data-pack-reload and before/after-save events exist so mods don't crash, but aren't sent yet.)
 

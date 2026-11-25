@@ -35,6 +35,7 @@ public final class OmniloaderMod {
 
         // Fabric API stand-ins: connect Fabric's events to NeoForge's.
         dev.omniloader.runtime.fabricapi.CommonBridge.init();
+        Platform.initFabricApiExtras(modBus);
         if (Platform.isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
 
         run("preLaunch", "pre_launch");

@@ -26,4 +26,9 @@ public final class Platform {
         var c = f.getContents();
         return c.containsFile(path) ? new String(c.readFile(path), StandardCharsets.UTF_8) : null;
     }
+
+    /** Fabric API networking, creative tabs, resource reloading, HUD. */
+    public static void initFabricApiExtras(net.neoforged.bus.api.IEventBus modBus) {
+        // Not ported to 26.1 yet: mods needing these parts are switched off by the safety check.
+    }
 }

@@ -26,6 +26,7 @@ public final class ClientBridge {
     private ClientBridge() {}
 
     public static void init(IEventBus modBus) {
+
         modBus.addListener(RegisterKeyMappingsEvent.class, e -> {
             synchronized (pendingKeys) {
                 pendingKeys.forEach(e::register);

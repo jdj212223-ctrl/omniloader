@@ -129,6 +129,7 @@ public final class NeoJarConverter {
                 b = b.clone();
                 ClassVersions.downgrade(b, Platform.MAX_CLASS_VERSION);
                 if (bridger != null) b = bridger.remapClass(b);
+                if (otherMc) b = Backporter.apply(b);
                 if (toml != null) b = holdBack(b, entries, subscribers);
                 RefCollector.collect(b, refs, adds, newerJava);
                 classes++;

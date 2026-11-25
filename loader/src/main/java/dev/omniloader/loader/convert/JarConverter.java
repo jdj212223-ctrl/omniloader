@@ -138,6 +138,7 @@ public final class JarConverter {
                     ClassVersions.downgrade(b, Platform.MAX_CLASS_VERSION);
                     if (remapper != null) b = remapper.remapClass(b);
                     else if (bridger != null) b = bridger.remapClass(b);
+                    if (crossVersion) b = Backporter.apply(b);
                     b = NeoFieldGetters.apply(b);
                     classes++;
                     if (active) RefCollector.collect(b, refs, adds, newerJava);

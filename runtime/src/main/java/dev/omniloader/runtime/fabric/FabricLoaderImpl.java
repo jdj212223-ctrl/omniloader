@@ -122,6 +122,7 @@ public final class FabricLoaderImpl implements FabricLoader {
             }
         }
         // Before starting anything: does every piece of Minecraft each mod uses actually exist here?
+        StringBuilder report = new StringBuilder("Omniloader report: mods that were switched off, and every piece of the game each one is missing.\n");
         String provided = readResource("/META-INF/omniloader/provided-members.txt");
         RefChecker.addProvided(provided);
         LOG.info("[Omniloader] Checking {} Fabric/Quilt mod(s) against this game ({} added members known)", toCheck.size(), RefChecker.ADDED.size());
@@ -129,6 +130,10 @@ public final class FabricLoaderImpl implements FabricLoader {
             ModContainerImpl c = e.getKey();
             List<String> missing = e.getValue() == null ? List.of() : RefChecker.missing(e.getValue());
             if (!missing.isEmpty()) {
+                report.append("\n== ").append(c.getMetadata().getName()).append(" (").append(c.getMetadata().getId()).append(")")
+                        .append(c.crossVersion ? ", made for Minecraft " + c.builtFor : "").append(c.builtForJava > 0 ? ", Java " + c.builtForJava : "")
+                        .append("\n   missing ").append(missing.size()).append(":\n");
+                for (String m : missing) report.append("   - ").append(m).append('\n');
                 c.active = false;
                 String list = String.join(", ", missing.subList(0, Math.min(5, missing.size()))) + (missing.size() > 5 ? " (+" + (missing.size() - 5) + " more)" : "");
                 c.offReason = c.crossVersion
@@ -145,6 +150,16 @@ public final class FabricLoaderImpl implements FabricLoader {
                 readEntrypoints(c, quiltMods.get(c) ? json.getAsJsonObject("quilt_loader").get("entrypoints") : json.get("entrypoints"));
             }
         }
+
+        // Mods already switched off while being converted (whole classes missing, Fabric API missing, wrong side...).
+        for (ModContainerImpl c : byNeoId.values())
+            if (!c.active && c.offReason != null && !toCheck.containsKey(c))
+                report.append("\n== ").append(c.getMetadata().getName()).append(" (").append(c.getMetadata().getId()).append(")\n   ").append(c.offReason).append('\n');
+        try {
+            java.nio.file.Path rp = getGameDir().resolve(".omniloader").resolve("report.txt");
+            java.nio.file.Files.createDirectories(rp.getParent());
+            java.nio.file.Files.writeString(rp, report);
+        } catch (Exception ignored) {}
 
         // 2) Everything else NeoForge loaded, so isModLoaded("sodium") etc. answer truthfully.
         for (IModInfo info : Platform.mods()) {

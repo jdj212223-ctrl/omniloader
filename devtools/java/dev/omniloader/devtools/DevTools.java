@@ -15,7 +15,22 @@ public final class DevTools {
     private long firstSeen = -1;
     private boolean done;
 
+    private int worldTicks;
+
     public DevTools() {
+        if (Boolean.getBoolean("omniloader.joinShot")) {
+            // Join test: once in a world for ~5 seconds, save a screenshot and quit.
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
+                Minecraft mc = Minecraft.getInstance();
+                if (done || mc.level == null || mc.player == null) return;
+                if (++worldTicks == 100) {
+                    done = true;
+                    System.out.println("[DevTools] in world, players online: " + mc.getConnection().getOnlinePlayers().size());
+                    Shot.grab(mc, "omniloader-join.png", () -> { System.out.println("[DevTools] join screenshot saved"); mc.stop(); });
+                }
+            });
+            return;
+        }
         if (!Boolean.getBoolean("omniloader.titleShot")) return;
         NeoForge.EVENT_BUS.addListener(ScreenEvent.Render.Post.class, e -> {
             if (done || !(e.getScreen() instanceof TitleScreen)) return;

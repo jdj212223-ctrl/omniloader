@@ -14,6 +14,11 @@ neoForge {
             systemProperty 'omniloader.quitAfterShot', 'true'
         }
         server { server(); programArgument '--nogui'; gameDirectory = file('run-server') }
+        clientJoin {
+            client(); gameDirectory = file('run')
+            programArguments.addAll('--quickPlayMultiplayer', '127.0.0.1:25598')
+            systemProperty 'omniloader.joinShot', 'true'
+        }
         configureEach { logLevel = org.slf4j.event.Level.INFO }
     }
     mods { omnidevtools { sourceSet(sourceSets.main) } }
@@ -35,5 +40,6 @@ tasks.register('syncClientMods') { dependsOn "${loaderProject}:jar"; doLast sync
 tasks.register('syncServerMods') { dependsOn "${loaderProject}:jar"; doLast syncMods('run-server') }
 afterEvaluate {
     tasks.named('runClient') { dependsOn 'syncClientMods' }
+    tasks.named('runClientJoin') { dependsOn 'syncClientMods' }
     tasks.named('runServer') { dependsOn 'syncServerMods' }
 }

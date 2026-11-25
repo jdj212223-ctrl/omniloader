@@ -1,0 +1,10 @@
+# Omniloader backports for Minecraft 1.21.1: newer Minecraft calls -> stand-ins in dev/omniloader/runtime/backport/Backports.
+# Applied to mods made for newer Minecraft versions. Only calls on Minecraft classes (net/minecraft/...) are rewritten.
+#   m <owner|*> <name> <descriptor> -> <helper name> <helper descriptor (first argument = the object called on)>
+#   f <owner> <name> <descriptor>  -> zero      (field that doesn't exist yet: reads give 0/false/null, writes are dropped)
+m * getMinY ()I -> getMinY (Lnet/minecraft/world/level/LevelHeightAccessor;)I
+m * getMaxY ()I -> getMaxY (Lnet/minecraft/world/level/LevelHeightAccessor;)I
+m net/minecraft/core/RegistryAccess$Frozen get (Lnet/minecraft/resources/ResourceKey;)Ljava/util/Optional; -> get (Lnet/minecraft/core/RegistryAccess;Lnet/minecraft/resources/ResourceKey;)Ljava/util/Optional;
+m * teleportTo (Lnet/minecraft/server/level/ServerLevel;DDDLjava/util/Set;FFZ)Z -> teleportTo (Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/server/level/ServerLevel;DDDLjava/util/Set;FFZ)Z
+f net/minecraft/server/MinecraftServer emptyTicks I -> zero
+m net/minecraft/core/RegistryAccess get (Lnet/minecraft/resources/ResourceKey;)Ljava/util/Optional; -> get (Lnet/minecraft/core/RegistryAccess;Lnet/minecraft/resources/ResourceKey;)Ljava/util/Optional;

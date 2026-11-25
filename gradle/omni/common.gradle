@@ -18,7 +18,10 @@ ext.omniSources = { String sharedDir, String part ->
     (project.findProperty('omni_replace') ?: '').split(';').each { if (it.contains('=')) { def kv = it.split('='); replace[kv[0].trim()] = kv[1].trim() } }
     def out = layout.buildDirectory.dir("omni-src/$part")
     def prep = tasks.register("prepare${part.capitalize()}Sources", Sync) {
-        from(rootProject.file(sharedDir))
+        from(rootProject.file(sharedDir)) {
+            // Shared pieces not ported to this version yet (versions/<mc>/gradle.properties: omni_exclude=a/**,b/**)
+            (project.findProperty('omni_exclude') ?: '').split(',').each { if (it.trim()) exclude it.trim() }
+        }
         into out
         inputs.property('replace', replace.toString())
         filter { String line -> replace.inject(line) { l, kv -> l.replaceAll('\\b' + java.util.regex.Pattern.quote(kv.key) + '\\b', kv.value) } }

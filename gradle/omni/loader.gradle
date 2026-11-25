@@ -9,6 +9,7 @@ configurations { embeddedRuntime }
 dependencies { embeddedRuntime project(path: runtimeProject, configuration: 'runtimeElements') }
 
 processResources {
+    from(rootProject.file("versions/${project.mc_version}/loader/resources"))
     from(rootProject.file('loader/src/main/resources')) {
         // Fabric's intermediary names are only needed for versions where Minecraft is shipped with scrambled names.
         if (project.findProperty('intermediary') != 'true') exclude 'intermediary-*.jar'

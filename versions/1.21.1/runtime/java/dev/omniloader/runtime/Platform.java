@@ -27,4 +27,9 @@ public final class Platform {
         Path p = f.findResource(path);
         return Files.isRegularFile(p) ? Files.readString(p, StandardCharsets.UTF_8) : null;
     }
+
+    /** Fabric API networking, creative tabs, resource reloading, HUD. */
+    public static void initFabricApiExtras(net.neoforged.bus.api.IEventBus modBus) {
+        dev.omniloader.runtime.fabricapi.FabricApiExtras.init(modBus);
+    }
 }
