@@ -102,6 +102,7 @@ public final class FabricLoaderImpl implements FabricLoader {
                 c.crossVersion = om.has("crossVersion") && om.get("crossVersion").getAsBoolean();
                 c.builtFor = om.has("builtFor") ? om.get("builtFor").getAsString() : null;
                 c.builtForJava = om.has("builtForJava") ? om.get("builtForJava").getAsInt() : 0;
+                if (!c.active && om.has("reason")) c.offReason = om.get("reason").getAsString();
                 if (neo) heldBack.put(c, om);
                 RefChecker.addProvided(Platform.readText(file, "META-INF/omniloader/adds.txt"));
                 String mixins = Platform.readText(file, "META-INF/omniloader/mixins.txt");

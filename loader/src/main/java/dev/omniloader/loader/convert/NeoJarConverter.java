@@ -139,12 +139,42 @@ public final class NeoJarConverter {
             }
             result.put(n, b);
         }
+        // Early verdict (only possible where we know the game's full class list): if the mod needs Minecraft classes
+        // that don't exist here, it can never run. Pack it as a switched-off stub so none of its pieces
+        // (code, enum entries, mixins, data) can reach the game.
+        String offReason = null;
+        if (toml != null && Platform.OBFUSCATED) {
+            Set<String> known = new HashSet<>(dev.omniloader.loader.mapping.MappingLoader.get().classes.values());
+            List<String> missing = new ArrayList<>();
+            for (String r : refs) {
+                String[] p = r.split(" ");
+                String owner = p[1];
+                if (!(owner.startsWith("net/minecraft/") || owner.startsWith("com/mojang/blaze3d/"))) continue;
+                String top = owner;
+                if (!known.contains(top) && !known.contains(top.contains("$") ? top.substring(0, top.indexOf('$')) : top)) {
+                    String simple = owner.substring(owner.lastIndexOf('/') + 1);
+                    if (!missing.contains(simple)) missing.add(simple);
+                }
+            }
+            if (!missing.isEmpty()) {
+                offReason = "it was made for Minecraft " + (builtFor != null ? builtFor : "another version") + " and uses things Minecraft "
+                        + Platform.MC + " doesn't have: " + String.join(", ", missing.subList(0, Math.min(5, missing.size())))
+                        + (missing.size() > 5 ? " (+" + (missing.size() - 5) + " more)" : "");
+                LOG.warn("[Omniloader] Switching off {}: {}", name, offReason);
+                Map<String, byte[]> stub = new LinkedHashMap<>();
+                stub.put("META-INF/neoforge.mods.toml", stripForStub(relax(toml)).getBytes(StandardCharsets.UTF_8));
+                Matcher logo = Pattern.compile("logoFile\\s*=\\s*\"([^\"]+)\"").matcher(toml);
+                if (logo.find() && files.containsKey(logo.group(1))) stub.put(logo.group(1), files.get(logo.group(1)));
+                result = stub;
+            }
+        }
         if (toml != null) {
             JsonObject info = new JsonObject();
+            if (offReason != null) info.addProperty("reason", offReason);
             info.addProperty("loader", "neoforge");
             info.addProperty("id", modId);
             info.addProperty("neoId", modId);
-            info.addProperty("active", true);
+            info.addProperty("active", offReason == null);
             info.addProperty("crossVersion", otherMc);
             info.addProperty("builtFor", builtFor != null ? builtFor : Platform.MC);
             if (newerJava) info.addProperty("builtForJava", check.newestJava());
@@ -195,6 +225,14 @@ public final class NeoJarConverter {
         }
         b.appendTail(sb);
         return sb.toString();
+    }
+
+    /** A switched-off mod keeps only its name: no mixins, access changes, enum additions or core mods. */
+    static String stripForStub(String toml) {
+        String t = toml.replaceAll("(?ms)^\\s*\\[\\[(mixins|accessTransformers)\\]\\].*?(?=^\\s*\\[|\\z)", "");
+        t = t.replaceAll("(?m)^\\s*enumExtensions\\s*=.*$", "");
+        t = t.replaceAll("(?m)^\\s*featureFlags\\s*=.*$", "");
+        return t;
     }
 
     /** Removes @Mod / @EventBusSubscriber (NeoForge would start those right away) and records them for Omniloader. */
