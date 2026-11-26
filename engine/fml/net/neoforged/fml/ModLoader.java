@@ -18,7 +18,7 @@ public final class ModLoader {
 
     public static void gatherAndInitializeMods(Executor syncExecutor, Executor parallelExecutor, Runnable periodicTask) {
         LoadingModList lml = LoadingModList.get();
-        ISSUES.addAll(lml.getModLoadingIssues());
+        lml.getModLoadingIssues().forEach(ModLoader::addLoadingIssue);
         List<ModContainer> containers = new ArrayList<>();
         for (var mod : lml.getMods()) {
             try { containers.add(containerFactory.apply(mod)); }
@@ -29,7 +29,7 @@ public final class ModLoader {
         for (ModContainer c : containers) {
             LOG.info("[Omniloader] Starting mod {}", c.getModId());
             try { c.constructMod(); }
-            catch (ModLoadingException e) { ISSUES.addAll(e.getIssues()); }
+            catch (ModLoadingException e) { e.getIssues().forEach(ModLoader::addLoadingIssue); }
             catch (Throwable t) { addLoadingIssue(ModLoadingIssue.error("fml.modloadingissue.failedtoloadmod", c.getModId()).withCause(t).withAffectedMod(c.getModInfo())); }
             periodicTask.run();
         }
@@ -57,7 +57,7 @@ public final class ModLoader {
         try { future.join(); }
         catch (CompletionException e) {
             Throwable c = e.getCause();
-            if (c instanceof ModLoadingException mle) { ISSUES.addAll(mle.getIssues()); }
+            if (c instanceof ModLoadingException mle) { mle.getIssues().forEach(ModLoader::addLoadingIssue); }
             else addLoadingIssue(ModLoadingIssue.error("fml.modloadingissue.technical_error", name + " failed").withCause(c));
         }
         if (hasErrors()) throw new ModLoadingException(getLoadingErrors());
@@ -68,7 +68,7 @@ public final class ModLoader {
         for (ModContainer c : ModList.get().getSortedMods()) {
             all.add(CompletableFuture.runAsync(() -> {
                 try { task.accept(c); }
-                catch (ModLoadingException e) { ISSUES.addAll(e.getIssues()); }
+                catch (ModLoadingException e) { e.getIssues().forEach(ModLoader::addLoadingIssue); }
                 catch (Throwable t) { addLoadingIssue(ModLoadingIssue.error("fml.modloadingissue.errorduringevent", c.getModId(), name).withCause(t).withAffectedMod(c.getModInfo())); }
             }, parallelExecutor));
         }

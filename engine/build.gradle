@@ -1,4 +1,5 @@
 // Omniloader's own engine: starts plain Minecraft itself (no NeoForge, no Fabric Loader) and loads mods.
+evaluationDependsOn(':1.21.1:loader')
 apply plugin: 'java-library'
 group = 'dev.omniloader'
 version = rootProject.omni_version
@@ -37,7 +38,8 @@ dependencies {
 def shared = tasks.register('sharedSources', Sync) {
     from(rootProject.file('loader/src/main/java')) {
         include 'dev/omniloader/loader/convert/**', 'dev/omniloader/loader/mapping/**', 'dev/omniloader/loader/OmniPaths.java', 'dev/omniloader/loader/OmniState.java'
-        exclude 'dev/omniloader/loader/convert/NeoJarConverter.java', 'dev/omniloader/loader/convert/ForgeConverter.java', 'dev/omniloader/loader/convert/VersionRanges.java'
+        include 'dev/omniloader/loader/ModsFolderScan.java', 'dev/omniloader/loader/NestedJars.java', 'dev/omniloader/loader/ReaderCore.java'
+        exclude 'dev/omniloader/loader/convert/VersionRanges.java'
     }
     from(rootProject.file('runtime/src/main/java')) {
         include 'net/fabricmc/api/**', 'net/fabricmc/loader/api/**', 'org/quiltmc/**', 'dev/omniloader/runtime/quilt/**'
@@ -51,9 +53,14 @@ sourceSets.main.java.srcDirs = ['src/main/java', 'fml', 'overlay', layout.buildD
 tasks.named('compileJava') { dependsOn shared }
 processResources {
     from(rootProject.file('loader/src/main/resources')) { include 'intermediary-*.jar', 'bridges/**' }
+    from(rootProject.file('versions/1.21.1/loader/resources')) { include '*.txt' }   // backports + Forge translation table
 }
+// Omniloader's game-side runtime (Fabric/Quilt API stand-ins, Forge bridge) and the bundled Fabric API, as in the NeoForge edition
+def loaderJar = project(':1.21.1:loader').tasks.named('jar')
+tasks.named('jar') { dependsOn loaderJar }
 jar {
     archiveVersion = ''
+    from({ zipTree(loaderJar.get().archiveFile) }) { include 'META-INF/omniloader/**' }
     from(rootProject.file('NOTICE')) { into 'META-INF' }
     from(rootProject.file('LICENSE')) { into 'META-INF' }
     manifest.attributes('Main-Class': 'dev.omniloader.engine.ClientMain', 'Implementation-Title': 'Omniloader', 'Implementation-Version': project.version)

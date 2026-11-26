@@ -52,6 +52,13 @@ public final class Engine {
         gameDir = Path.of(argValue(arguments, "--gameDir", ".")).toAbsolutePath().normalize();
         log("Omniloader " + VERSION + " (own engine) starting Minecraft " + dev.omniloader.loader.Platform.MC + " on the " + (client ? "client" : "server"));
 
+        // Full mode (Fabric + Quilt + Forge + NeoForge) whenever NeoForge's API files are around
+        if (!Boolean.getBoolean("omniloader.pure")) {
+            NeoBoot.GameFiles neo = NeoBoot.locate(client);
+            if (neo != null) { NeoBoot.launch(neo, mainClass); return; }
+            log("NeoForge's API files not found: starting in Fabric/Quilt-only mode");
+        }
+
         // 1. Minecraft, in Mojang's names
         Path gameJar = findGameJar();
         log("Game: " + gameJar);
@@ -96,13 +103,7 @@ public final class Engine {
         FabricLoaderImpl.INSTANCE.setup(loaded);
 
         // 4. Mixin
-        MixinBootstrap.init();
-        MixinEnvironment.getDefaultEnvironment().setSide(client ? MixinEnvironment.Side.CLIENT : MixinEnvironment.Side.SERVER);
-        for (String cfg : mixinConfigs) Mixins.addConfiguration(cfg);
-        Method gotoPhase = MixinEnvironment.class.getDeclaredMethod("gotoPhase", MixinEnvironment.Phase.class);
-        gotoPhase.setAccessible(true);
-        gotoPhase.invoke(null, MixinEnvironment.Phase.INIT);
-        gotoPhase.invoke(null, MixinEnvironment.Phase.DEFAULT);
+        startMixin(mixinConfigs);
         loader.setTransformer((name, bytes) -> {
             byte[] b = access.isEmpty() ? bytes : access.transform(name.replace('.', '/'), bytes);
             var t = OmniMixinService.transformer();
@@ -120,6 +121,17 @@ public final class Engine {
 
         // 6. Minecraft
         loader.loadClass(mainClass).getMethod("main", String[].class).invoke(null, (Object) arguments);
+    }
+
+    /** Starts Mixin with Omniloader as its host and registers the mods' mixin configs. */
+    static void startMixin(List<String> mixinConfigs) throws Exception {
+        MixinBootstrap.init();
+        MixinEnvironment.getDefaultEnvironment().setSide(client ? MixinEnvironment.Side.CLIENT : MixinEnvironment.Side.SERVER);
+        for (String cfg : mixinConfigs) Mixins.addConfiguration(cfg);
+        Method gotoPhase = MixinEnvironment.class.getDeclaredMethod("gotoPhase", MixinEnvironment.Phase.class);
+        gotoPhase.setAccessible(true);
+        gotoPhase.invoke(null, MixinEnvironment.Phase.INIT);
+        gotoPhase.invoke(null, MixinEnvironment.Phase.DEFAULT);
     }
 
     static String argValue(String[] a, String key, String def) {

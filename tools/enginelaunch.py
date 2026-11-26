@@ -9,10 +9,16 @@ meta, version, java, game_dir, engine = sys.argv[1:6]
 extra = sys.argv[6:]
 vdir = os.path.join(meta, 'versions', version)
 v = json.load(open(os.path.join(vdir, version + '.json')))
+if 'assetIndex' not in v:   # NeoForge recipes from some launchers leave this out; 1.21.1 uses asset index 17
+    v['assetIndex'] = {'id': '17'}
 libdir = os.path.join(meta, 'libraries')
 natives = os.path.join(meta, 'natives', version)
 arch = 'arm64' if platform.machine() == 'arm64' else 'x86_64'
-SKIP = ('net.fabricmc:fabric-loader', 'net.fabricmc:intermediary')
+SKIP = ('net.fabricmc:fabric-loader', 'net.fabricmc:intermediary',
+        # NeoForge's own loader (FML, ModLauncher...) and installer tools: Omniloader replaces these
+        'net.neoforged.fancymodloader:', 'cpw.mods:', 'net.neoforged:coremods', 'net.neoforged.accesstransformers:', 'net.neoforged:accesstransformers',
+        'net.neoforged:JarJar', 'org.openjdk.nashorn:', 'net.neoforged:neoforge:', 'net.neoforged:neoform', 'net.neoforged.installertools:',
+        'net.neoforged:AutoRenamingTool', 'net.neoforged:srgutils', 'net.md-5:', 'de.siegmar:', 'com.opencsv:', 'com.modrinth.daedalus:')
 
 def allowed(rules):
     if not rules: return True
