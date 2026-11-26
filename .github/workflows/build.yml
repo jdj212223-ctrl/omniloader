@@ -64,6 +64,6 @@ jobs:
           - **Windows / Linux:** \`omniloader-installer.jar\` (needs Java 17 or newer).
           - **Already have NeoForge 1.21.1?** Just put \`omniloader-1.21.1.jar\` in your mods folder.
           - \`omniloader-engine.jar\`: Omniloader's own engine (experimental, see the README).
-          - \`omniloader-26.1.jar\`: for Minecraft 26.1 (NeoForge mods + simpler Fabric mods).
+          - \`omniloader-26.1.jar\`: for Minecraft 26.1.2 on NeoForge (put it in your mods folder), or use the installer and pick 26.1.2.
           NOTES
           gh release create "$TAG" release/* --title "Omniloader ${VERSION} (build ${GITHUB_RUN_NUMBER})" --notes-file notes.md --target "$GITHUB_SHA" --latest

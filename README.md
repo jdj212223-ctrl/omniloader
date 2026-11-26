@@ -218,6 +218,20 @@ to get where it is. Omniloader takes the same basic approach and is at the start
   API classes are written from scratch to match the public method names mods use.
 - Not affiliated with Mojang, Microsoft, Fabric, Quilt or NeoForge.
 
+## Minecraft 26.1.2
+
+Omniloader runs on **Minecraft 26.1.2** too, on top of NeoForge 26.1.2, so you can mix Fabric, Quilt and NeoForge
+mods there. In the installer, pick **Minecraft 26.1.2**.
+
+- The real **Fabric API** is built in (Forgified Fabric API 0.155.3, all 45 parts), the same as on 1.21.1.
+- One **mod menu** for every mod, with Config buttons for Fabric mods.
+- Tested in real games: Vampirism 2.0, FactionAPI and AppleSkin (NeoForge) together with Jade, Chunky,
+  Mouse Tweaks, Dynamic FPS, Krypton, Nature's Compass, Explorer's Compass, Shulker Box Tooltip and Alternate Current
+  (Fabric). 65 mods reached the title screen with no errors; a 26.1.2 server ran the same mods at 20 TPS.
+- Known issues: Xaero's Minimap (Fabric) adds a game effect too late for NeoForge and crashes on its first tick;
+  Forge mods for 26.1.2 aren't supported yet (Forge mods for 1.21.1 are).
+- Mods made for 1.21.1 are switched off on 26.1.2 with a clear reason when they use things 26.1.2 no longer has.
+
 ## New: Omniloader's own engine (no NeoForge loader, no Fabric Loader)
 
 `dist/omniloader-engine.jar` starts Minecraft 1.21.1 by itself. Omniloader finds the mods, translates them, changes
