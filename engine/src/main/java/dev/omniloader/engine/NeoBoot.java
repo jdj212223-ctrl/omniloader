@@ -148,6 +148,7 @@ final class NeoBoot {
         Map<String, List<ITransformer<?>>> coremods = coremods(loader);
         Engine.startMixin(mixinConfigs);
         initMixinExtras(loader);
+        loader.setGenerator(name -> { var t = dev.omniloader.engine.mixin.OmniMixinService.transformer(); return t == null ? null : t.generateClass(org.spongepowered.asm.mixin.MixinEnvironment.getCurrentEnvironment(), name); });
         loader.setTransformer((name, bytes) -> {
             String internal = name.replace('.', '/');
             byte[] b = Engine.access.touches(internal) ? Engine.access.transform(internal, bytes) : bytes;

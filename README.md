@@ -212,3 +212,14 @@ to get where it is. Omniloader takes the same basic approach and is at the start
 - Omniloader doesn't include code from Fabric Loader, Quilt Loader or Sinytra Connector. The Fabric and Quilt
   API classes are written from scratch to match the public method names mods use.
 - Not affiliated with Mojang, Microsoft, Fabric, Quilt or NeoForge.
+
+## New: Omniloader's own engine (no NeoForge loader, no Fabric Loader)
+
+`dist/omniloader-engine.jar` starts Minecraft 1.21.1 by itself. Omniloader finds the mods, translates them, changes
+the game for them (Mixin, access changes) and starts them, using its own loader code. It gives mods the
+Fabric, Quilt, Forge and NeoForge APIs at the same time: NeoForge's API and Forge-style mods run on top of
+Omniloader's own loader, and Fabric mods get the bundled Fabric API.
+
+Tested: a world with 113 mods (44 Forge, 19 Fabric/Quilt, NeoForge, the full Fabric API) loads and plays.
+Try it: `python3 tools/enginelaunch.py <launcher>/meta 1.21.1-21.1.264 <java> <game folder> dist/omniloader-engine.jar`
+(Not yet available as a launcher install; the NeoForge-based Omniloader above is still the easy way to play.)

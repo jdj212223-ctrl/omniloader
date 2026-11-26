@@ -104,6 +104,7 @@ public final class Engine {
 
         // 4. Mixin
         startMixin(mixinConfigs);
+        loader.setGenerator(name -> { var t = dev.omniloader.engine.mixin.OmniMixinService.transformer(); return t == null ? null : t.generateClass(org.spongepowered.asm.mixin.MixinEnvironment.getCurrentEnvironment(), name); });
         loader.setTransformer((name, bytes) -> {
             byte[] b = access.isEmpty() ? bytes : access.transform(name.replace('.', '/'), bytes);
             var t = OmniMixinService.transformer();

@@ -1,6 +1,7 @@
 # Plan: Omniloader's own engine runs Fabric, Forge and NeoForge mods (no FML)
 
-Status: engine milestone 1 done (vanilla 1.21.1 + Fabric mods, commit 7e4e7e5). Shared mod finder split out
+Status (2026-11-26): FULL MODE WORKS. Client loads a world with 113 mods (44 Forge, 19 Fabric/Quilt, NeoForge, bundled Fabric API)
+on Omniloader's own loader; data-pack test confirms Fabric commands + redstone. Earlier: engine milestone 1 done (vanilla 1.21.1 + Fabric mods, commit 7e4e7e5). Shared mod finder split out
 (ModsFolderScan, NestedJars) so the engine and the NeoForge edition use one copy.
 
 ## Idea
@@ -30,6 +31,11 @@ TopologicalSort, CrashReportCallables, StartupNotificationManager (no-op), Exten
 5. Start net.minecraft.client.main.Main; NeoForge's own ClientModLoader drives ModLoader from there.
 Libraries: NeoForge's list minus FML, modlauncher, bootstraplauncher, securejarhandler, coremods (JS),
 accesstransformers, JarJar*, earlydisplay, nashorn.
+
+## Known gaps
+- Dedicated server in full mode: needs NeoForge's server files (only a client install was available to test).
+- Enum extensions (mods that add values to game enums, e.g. Vampirism) are not supported yet.
+- Same Forge leftovers as the NeoForge edition (SimpleChannel networking, capabilities, some SRG-named code).
 
 ## Later
 Enum extensions (RuntimeEnumExtender), server side, launcher installs of the engine.

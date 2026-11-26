@@ -37,6 +37,10 @@ public final class EngineClassLoader extends ClassLoader {
 
     public void setTransformer(BiFunction<String, byte[], byte[]> t) { this.transformer = t; }
 
+    /** Classes Mixin makes on the fly (e.g. for @ModifyArgs); they don't exist in any jar. */
+    private volatile java.util.function.Function<String, byte[]> generator = n -> null;
+    public void setGenerator(java.util.function.Function<String, byte[]> g) { this.generator = g; }
+
     private Source find(String path) {
         for (Source s : sources) if (s.zip.getEntry(path) != null) return s;
         return null;
@@ -58,7 +62,11 @@ public final class EngineClassLoader extends ClassLoader {
             Class<?> c = findLoadedClass(name);
             if (c == null) {
                 if (!name.startsWith("java.") && owns(name)) c = findClass(name);   // Minecraft and mods: ours, changed on load
-                else c = getParent().loadClass(name);
+                else if (name.startsWith("org.spongepowered.asm.synthetic.")) {
+                    byte[] b = generator.apply(name);
+                    if (b == null) throw new ClassNotFoundException(name);
+                    c = defineClass(name, b, 0, b.length);
+                } else c = getParent().loadClass(name);
             }
             if (resolve) resolveClass(c);
             return c;

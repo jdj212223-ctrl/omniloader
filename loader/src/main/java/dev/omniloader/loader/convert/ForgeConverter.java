@@ -65,6 +65,7 @@ public final class ForgeConverter {
                 ClassVersions.downgrade(b, dev.omniloader.loader.Platform.MAX_CLASS_VERSION);
                 b = Backporter.applyForge(renamer.remapClass(b));
             }
+            if (n.equals("META-INF/accesstransformer.cfg")) b = realNamesInAccessTransformer(new String(b, StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8);
             out.put(n, b);
         }
         out.put("META-INF/neoforge.mods.toml", neoToml(toml, mixinConfigs, out.keySet()).getBytes(StandardCharsets.UTF_8));
@@ -88,6 +89,21 @@ public final class ForgeConverter {
     }
 
     private static final java.util.regex.Pattern DEP = java.util.regex.Pattern.compile("(?ms)^\\s*\\[\\[dependencies\\.[^\\]]+\\]\\](.*?)(?=^\\s*\\[|\\z)");
+
+    private static final java.util.regex.Pattern SRG_LINE = java.util.regex.Pattern.compile("^(\\s*\\S+\\s+\\S+\\s+)([mf]_\\d+_)(\\S*)(\\s*#\\s*([A-Za-z_$][A-Za-z0-9_$]*).*)$");
+
+    /**
+     * Forge access transformers often name game members by Forge's old numbers ("m_274409_") with the real
+     * name in a comment ("#parameters"). Minecraft 1.21.1 runs with real names, so use those.
+     */
+    static String realNamesInAccessTransformer(String text) {
+        StringBuilder sb = new StringBuilder();
+        for (String line : text.split("\n", -1)) {
+            java.util.regex.Matcher m = SRG_LINE.matcher(line);
+            sb.append(m.matches() ? m.group(1) + m.group(5) + m.group(3) + m.group(4) : line).append('\n');
+        }
+        return sb.substring(0, sb.length() - 1);
+    }
 
     /** Required mods that aren't installed: the Forge mod is switched off with a clear reason instead of NeoForge stopping the game. */
     static String missingDependencies(String toml) {
