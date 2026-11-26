@@ -49,6 +49,8 @@ game = ['--username', 'Dev', '--version', 'omniloader-engine', '--gameDir', game
         '--userType', 'legacy', '--versionType', 'release']
 server = os.environ.get('OMNI_SERVER') == '1'
 if server: game = ['--nogui']
+import shlex
+game += shlex.split(os.environ.get('OMNI_GAME_ARGS', ''))   # e.g. --quickPlaySingleplayer "My World"
 cmd = [java, '-Xmx3G'] + ([] if server else ['-XstartOnFirstThread']) + [ '-Djava.library.path=' + natives, '-Dorg.lwjgl.system.SharedLibraryExtractPath=' + natives,
        '-Domniloader.gameJar=' + game_jar, '-DlibraryDirectory=' + libdir] + extra + ['-cp', os.pathsep.join(cp), 'dev.omniloader.engine.ServerMain' if server else 'dev.omniloader.engine.ClientMain'] + game
 sys.exit(subprocess.call(cmd, cwd=game_dir))
