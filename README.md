@@ -21,12 +21,15 @@ a Fabric-only mod, running through Omniloader next to AppleSkin (a NeoForge mod)
 
 ## Installing (Mac, Windows, Linux)
 
+**Download:** get the newest files from the **[Releases page](https://github.com/jdj212223-ctrl/omniloader/releases/latest)**.
+Every change is built and released there automatically by GitHub Actions.
+
 1. Open the Minecraft Launcher, Prism Launcher or the Modrinth App at least once.
 2. Run the installer:
-   - **Mac:** open `Omniloader-Installer-0.2.0.dmg` and double-click **Omniloader Installer**.
+   - **Mac:** download `Omniloader-Installer-<version>.dmg`, open it and double-click **Omniloader Installer**.
      The first time, macOS may say it "can't check it for malicious software", because the app
      isn't signed with a paid Apple certificate. Right-click the app, choose **Open**, then **Open** again.
-   - **Windows / Linux:** double-click `omniloader-installer.jar` (needs Java 17 or newer).
+   - **Windows / Linux:** download `omniloader-installer.jar` and double-click it (needs Java 17 or newer).
 3. Tick the launchers you use and press **Install**:
    - **Minecraft Launcher:** installs Omniloader as its own game version (**omniloader-1.21.1**, built on
      NeoForge's engine) and adds a profile *Omniloader 1.21.1 (Fabric, Quilt, Forge, NeoForge)* with its own game
@@ -39,7 +42,8 @@ a Fabric-only mod, running through Omniloader next to AppleSkin (a NeoForge mod)
 4. Press **Open mods folder** and drop in your Fabric, Quilt and NeoForge mods for 1.21.1.
 5. Pick the Omniloader profile in your launcher and press **Play**.
 
-Already have NeoForge 1.21.1? You can skip the installer: just put `omniloader.jar` in your `mods` folder.
+Already have NeoForge 1.21.1? You can skip the installer: download `omniloader-1.21.1.jar` from the
+[Releases page](https://github.com/jdj212223-ctrl/omniloader/releases/latest) and put it in your `mods` folder.
 
 ---
 
@@ -160,7 +164,7 @@ Needs Java 21.
 ./gradlew :1.21.1:loader:jar     # versions/1.21.1/loader/build/libs/omniloader-1.21.1.jar (put this in mods/)
 ./gradlew :26.1:loader:jar       # the Minecraft 26.1 edition
 ./gradlew :installer:jar         # installer/build/libs/omniloader-installer.jar
-./gradlew :installer:macDmg      # installer/build/mac/Omniloader-Installer-0.2.0.dmg (on a Mac)
+./gradlew :installer:macDmg      # installer/build/mac/Omniloader-Installer-<version>.dmg (on a Mac)
 tools/fetch-testmods.sh          # downloads the real test mods into testmods/
 ./gradlew :1.21.1:devrun:runServer   # test server (RCON on port 25599, password omnitest)
 ./gradlew :1.21.1:devrun:runClient   # test client: saves a title-screen screenshot, then quits
@@ -221,5 +225,5 @@ Fabric, Quilt, Forge and NeoForge APIs at the same time: NeoForge's API and Forg
 Omniloader's own loader, and Fabric mods get the bundled Fabric API.
 
 Tested: a world with 113 mods (44 Forge, 19 Fabric/Quilt, NeoForge, the full Fabric API) loads and plays.
-Try it: `python3 tools/enginelaunch.py <launcher>/meta 1.21.1-21.1.264 <java> <game folder> dist/omniloader-engine.jar`
+It's in every release as `omniloader-engine.jar`. Try it: `python3 tools/enginelaunch.py <launcher>/meta 1.21.1-21.1.264 <java> <game folder> dist/omniloader-engine.jar`
 (Not yet available as a launcher install; the NeoForge-based Omniloader above is still the easy way to play.)
