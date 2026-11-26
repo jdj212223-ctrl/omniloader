@@ -3,6 +3,13 @@
   "minVersion": "0.8",
   "package": "dev.omniloader.runtime.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["CommandSourceStackMixin"],
-  "injectors": { "defaultRequire": 1 }
+  "mixins": [
+    "CommandSourceStackMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "MinecraftStartMixin"
+  ]
 }

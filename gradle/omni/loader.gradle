@@ -23,12 +23,15 @@ def fetchFfapi = tasks.register('fetchFabricApi') {
     onlyIf { ffapiUrl != null }
     def out = ffapiDir.get().file('ffapi.jar').asFile
     outputs.file(out)
+    outputs.file(new File(out.parentFile, 'index.txt'))
     doLast {
         out.parentFile.mkdirs()
         if (!out.exists()) new URL(ffapiUrl).withInputStream { i -> out.withOutputStream { o -> o << i } }
         def sha = java.security.MessageDigest.getInstance('SHA-1').digest(out.bytes).encodeHex().toString()
         if (sha != project.ffapi_sha1) { out.delete(); throw new GradleException("Fabric API download was damaged (sha1 $sha)") }
-        def names = new java.util.zip.ZipFile(out).entries().collect { it.name }.findAll { it ==~ /META-INF\/jars\/fabric-.*\.jar/ }.collect { it.substring(it.lastIndexOf('/') + 1) }
+        def names = new java.util.zip.ZipFile(out).entries().collect { it.name }
+                .findAll { it ==~ /META-INF\/jars\/fabric-.*\.jar/ || it ==~ /META-INF\/jarjar\/org\.sinytra\.forgified-fabric-api\..*\.jar/ }
+                .collect { it.substring(it.lastIndexOf('/') + 1).replace('org.sinytra.forgified-fabric-api.', '') }
         new File(out.parentFile, 'index.txt').text = names.join('\n')
     }
 }
@@ -37,7 +40,12 @@ def fetchFfapi = tasks.register('fetchFabricApi') {
 def unpackFfapi = tasks.register('unpackFabricApi', Sync) {
     dependsOn fetchFfapi
     onlyIf { ffapiUrl != null }
-    from({ zipTree(ffapiDir.get().file('ffapi.jar').asFile) }) { include 'META-INF/jars/fabric-*.jar'; eachFile { path = name } ; includeEmptyDirs = false }
+    // 1.21.1 build: META-INF/jars/fabric-*.jar; 26.1.2 build: META-INF/jarjar/org.sinytra.forgified-fabric-api.*.jar
+    from({ zipTree(ffapiDir.get().file('ffapi.jar').asFile) }) {
+        include 'META-INF/jars/fabric-*.jar', 'META-INF/jarjar/org.sinytra.forgified-fabric-api.*.jar'
+        eachFile { path = name.replace('org.sinytra.forgified-fabric-api.', '') }
+        includeEmptyDirs = false
+    }
     from({ ffapiDir.get().file('index.txt').asFile })
     into layout.buildDirectory.dir('ffapi-modules')
 }

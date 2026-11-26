@@ -46,21 +46,32 @@ public final class OmniloaderMod {
         modBus.addListener(EventPriority.HIGHEST, RegisterEvent.class, e -> startMods());
     }
 
+    private static boolean clientWanted, clientStarted;
+
     private static synchronized void startMods() {
         if (started) return;
         started = true;
         long t0 = System.nanoTime();
         run("main", "init");
-        if (Platform.isClient()) run("client", "client_init");
-        else run("server", "server_init");
+        if (!Platform.isClient()) run("server", "server_init");
+        else if (Platform.CLIENT_START_WITH_MODS || clientWanted) startClient();
         LOG.info("[Omniloader] Fabric/Quilt mods started in {} ms", (System.nanoTime() - t0) / 1_000_000);
+    }
+
+    /** Fabric/Quilt client code: once the game object exists (and after the mods' main code). */
+    public static synchronized void startClient() {
+        if (clientStarted) return;
+        if (!started) { clientWanted = true; return; }   // main code first, like Fabric
+        clientStarted = true;
+        run("client", "client_init");
     }
 
     /** Runs one Fabric entrypoint kind and its Quilt twin. */
     private static void run(String fabricKey, String quiltKey) {
         FabricLoaderImpl loader = FabricLoaderImpl.INSTANCE;
         for (String key : new String[]{fabricKey, quiltKey}) {
-            for (FabricLoaderImpl.Entry e : loader.rawEntrypoints(key)) {
+            for (FabricLoaderImpl.Entry e : List.copyOf(loader.rawEntrypoints(key))) {
+                if (!e.mod().active) continue;
                 String who = e.mod().getMetadata().getName();
                 try {
                     Object o = loader.instantiate(e, expectedType(key));
@@ -68,7 +79,11 @@ public final class OmniloaderMod {
                     if (ran) LOG.info("[Omniloader] Started {} ({} -> {})", who, key, e.value());
                     else LOG.warn("[Omniloader] {}: entrypoint '{}' ({}) is not a type Omniloader knows how to start", who, key, e.value());
                 } catch (Throwable t) {
-                    throw new RuntimeException("Fabric/Quilt mod " + who + " crashed while starting (" + key + " -> " + e.value() + ")", t);
+                    // Only this mod is switched off; the game and the other mods carry on.
+                    Throwable c = t instanceof java.lang.reflect.InvocationTargetException ite && ite.getCause() != null ? ite.getCause() : t;
+                    LOG.error("[Omniloader] Fabric/Quilt mod {} crashed while starting ({} -> {}); switching it off", who, key, e.value(), c);
+                    loader.switchOff(e.mod(), "it crashed while starting: " + c);
+                    loader.noteSwitchedOff(e.mod());
                 }
             }
         }

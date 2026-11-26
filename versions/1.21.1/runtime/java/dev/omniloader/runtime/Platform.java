@@ -14,6 +14,8 @@ import java.util.List;
 
 /** In-game adapter for Minecraft 1.21.1 / NeoForge 21.1. */
 public final class Platform {
+    /** NeoForge 1.21.1 loads mods inside the game constructor: the game object already exists. */
+    public static final boolean CLIENT_START_WITH_MODS = true;
     public static final String MC = "1.21.1";
     private Platform() {}
 

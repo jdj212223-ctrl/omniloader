@@ -45,7 +45,7 @@ public final class NestedJars {
                 LOG.info("[Omniloader] Skipping bundled {} inside {} (provided elsewhere)", innerMeta.id, meta.id);
                 continue;
             }
-            if (inner.containsKey("META-INF/neoforge.mods.toml")) continue;
+            // A bundled jar that is also a NeoForge mod (multi-loader "common" jars) is loaded as that NeoForge mod.
             String key = innerMeta != null ? "mod:" + innerMeta.id : "lib:" + name.replaceAll("-[0-9].*$", "");
             if (!seen.add(key)) continue;
 

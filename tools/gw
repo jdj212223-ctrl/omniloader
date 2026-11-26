@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs Gradle with its cache on the big disk (/Volumes/important), not the main disk.
+export GRADLE_USER_HOME=/Volumes/important/omniloader-gradle-home
+cd "$(dirname "$0")/.." && exec ./gradlew "$@"

@@ -11,7 +11,7 @@ import java.util.HexFormat;
 /** Where Omniloader keeps its working files: <game folder>/.omniloader */
 public final class OmniPaths {
     /** Bump when the converter output changes, so old converted jars are rebuilt. */
-    public static final String CONVERTER_VERSION = "29";
+    public static final String CONVERTER_VERSION = "31";
 
     private OmniPaths() {}
 

@@ -166,6 +166,19 @@ public final class JarConverter {
             result.put(n, b);
         }
 
+        // Java's module system refuses a jar whose service list names a class that isn't in it
+        // (happens when a switched-off mod's code is left out): keep only providers that are really there.
+        for (String n : new ArrayList<>(result.keySet())) {
+            if (!n.startsWith("META-INF/services/") || n.endsWith("/")) continue;
+            StringBuilder kept = new StringBuilder();
+            for (String line : new String(result.get(n), StandardCharsets.UTF_8).split("\\R")) {
+                String cls = line.contains("#") ? line.substring(0, line.indexOf('#')).trim() : line.trim();
+                if (cls.isEmpty() || !result.containsKey(cls.replace('.', '/') + ".class")) continue;
+                kept.append(cls).append('\n');
+            }
+            if (kept.length() == 0) result.remove(n); else result.put(n, kept.toString().getBytes(StandardCharsets.UTF_8));
+        }
+
         String at = null;
         if (active && meta.accessWidener != null && files.containsKey(meta.accessWidener)) {
             at = AccessWidenerConverter.convert(new String(files.get(meta.accessWidener), StandardCharsets.UTF_8), m != null ? m : new Mappings());

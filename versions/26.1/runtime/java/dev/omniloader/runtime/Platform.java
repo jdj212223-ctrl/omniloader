@@ -13,6 +13,8 @@ import java.util.List;
 
 /** In-game adapter for Minecraft 26.1 / NeoForge 26.1. */
 public final class Platform {
+    /** NeoForge 26.1 loads mods before the game object exists: start client code from the game constructor (MinecraftStartMixin). */
+    public static final boolean CLIENT_START_WITH_MODS = false;
     public static final String MC = "26.1";
     private Platform() {}
 
@@ -29,9 +31,7 @@ public final class Platform {
 
     /** Starts Omniloader's Fabric API stand-ins (where this version uses them). */
     public static void initFabricApi(net.neoforged.bus.api.IEventBus modBus) {
-        dev.omniloader.runtime.fabricapi.CommonBridge.init();
-        if (isClient()) dev.omniloader.runtime.fabricapi.ClientBridge.init(modBus);
-        // Networking, creative tabs, screens etc. are not ported to 26.1 yet.
+        // The real Fabric API (Forgified Fabric API, bundled) does this on 26.1.2 too.
     }
 
     /** Forge-style events for Forge mods (only called when Forge mods are running). */
