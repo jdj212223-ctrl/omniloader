@@ -38,6 +38,16 @@ import java.util.zip.ZipOutputStream;
 public final class Install {
     public static final String MC = "1.21.1";
     public static final String NEOFORGE = "21.1.264";
+    /** Minecraft 26.1.2: Omniloader on top of NeoForge 26.1.2 (Omniloader's own engine is 1.21.1-only for now). */
+    public static final String MC26 = "26.1.2", NEOFORGE26 = "26.1.2.126";
+    public static final String NAME26 = "Omniloader 26.1.2";
+
+    public static byte[] loaderJar26() throws IOException {
+        try (InputStream in = Install.class.getResourceAsStream("/payload/omniloader-26.1.jar")) {
+            if (in == null) throw new IOException("Omniloader for 26.1.2 is missing from this installer");
+            return in.readAllBytes();
+        }
+    }
     public static final String PROFILE_NAME = "Omniloader " + MC + " (Fabric, Quilt, Forge, NeoForge)";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
@@ -272,6 +282,102 @@ public final class Install {
 
     // ------------------------------------------------------------------ Modrinth (.mrpack)
 
+    // ------------------------------------------------------------------ Minecraft 26.1.2
+
+    /** Prism instance "Omniloader 26.1.2": Minecraft 26.1.2 + NeoForge 26.1.2, Omniloader in its mods folder. */
+    public Path prism26(Path prismDir) throws IOException {
+        Path inst = prismDir.resolve("instances").resolve("Omniloader-26.1.2");
+        Files.createDirectories(inst);
+        Files.writeString(inst.resolve("mmc-pack.json"), """
+                {
+                    "components": [
+                        { "important": true, "uid": "net.minecraft", "version": "%s" },
+                        { "uid": "net.neoforged", "version": "%s" }
+                    ],
+                    "formatVersion": 1
+                }
+                """.formatted(MC26, NEOFORGE26));
+        Path cfg = inst.resolve("instance.cfg");
+        if (!Files.exists(cfg)) Files.writeString(cfg, """
+                [General]
+                ConfigVersion=1.2
+                InstanceType=OneSix
+                name=%s
+                iconKey=omniloader
+                notes=Fabric, Quilt and NeoForge mods together on Minecraft 26.1.2, through Omniloader.
+                """.formatted(NAME26));
+        Path icons = prismDir.resolve("icons");
+        Files.createDirectories(icons);
+        Files.write(icons.resolve("omniloader.png"), icon(128));
+        Path game = Files.isDirectory(inst.resolve(".minecraft")) ? inst.resolve(".minecraft") : inst.resolve("minecraft");
+        Path mods = game.resolve("mods");
+        prepareMods(mods);
+        Files.write(mods.resolve("omniloader-26.1.jar"), loaderJar26());
+        log.accept("Made a Prism Launcher instance called \"" + NAME26 + "\" (Minecraft 26.1.2 + NeoForge, with Omniloader). Prism downloads the game itself when you press Launch.");
+        return mods;
+    }
+
+    /** Minecraft Launcher: NeoForge 26.1.2 (installed with NeoForge's installer) + a profile with Omniloader in its mods folder. */
+    public Path official26(Path mcDir, boolean installNeoForge) throws Exception {
+        if (!Files.isRegularFile(mcDir.resolve("launcher_profiles.json")))
+            throw new IOException("The Minecraft Launcher hasn't been set up in " + mcDir + " yet. Open it once, then run this installer again.");
+        String version = "neoforge-" + NEOFORGE26;
+        if (Files.isRegularFile(mcDir.resolve("versions").resolve(version).resolve(version + ".json"))) log.accept("NeoForge " + NEOFORGE26 + " is already installed.");
+        else if (installNeoForge) installNeoForge(mcDir, "--install-client", NEOFORGE26);
+        Path gameDir = mcDir.resolve("omniloader-26.1.2");
+        Path mods = gameDir.resolve("mods");
+        prepareMods(mods);
+        Files.write(mods.resolve("omniloader-26.1.jar"), loaderJar26());
+        Path profiles = mcDir.resolve("launcher_profiles.json");
+        JsonObject root = JsonParser.parseString(Files.readString(profiles)).getAsJsonObject();
+        Files.copy(profiles, mcDir.resolve("launcher_profiles.json.before-omniloader"), StandardCopyOption.REPLACE_EXISTING);
+        JsonObject all = root.has("profiles") ? root.getAsJsonObject("profiles") : new JsonObject();
+        root.add("profiles", all);
+        JsonObject p = all.has("omniloader-26") ? all.getAsJsonObject("omniloader-26") : new JsonObject();
+        String now = Instant.now().toString();
+        if (!p.has("created")) p.addProperty("created", now);
+        p.addProperty("lastUsed", now);
+        p.addProperty("name", NAME26 + " (Fabric, Quilt, NeoForge)");
+        p.addProperty("type", "custom");
+        p.addProperty("lastVersionId", version);
+        p.addProperty("gameDir", gameDir.toString());
+        p.addProperty("icon", "data:image/png;base64," + Base64.getEncoder().encodeToString(icon(128)));
+        if (!p.has("javaArgs")) p.addProperty("javaArgs", "-Xmx4G -XX:+UseG1GC");
+        all.add("omniloader-26", p);
+        writeAtomic(profiles, GSON.toJson(root));
+        log.accept("Added the profile \"" + NAME26 + "\" to the Minecraft Launcher.");
+        return mods;
+    }
+
+    /** Modrinth pack for 26.1.2: Minecraft 26.1.2 + NeoForge, Omniloader in the mods folder. */
+    public Path mrpack26(Path out) throws IOException {
+        JsonObject index = new JsonObject();
+        index.addProperty("formatVersion", 1);
+        index.addProperty("game", "minecraft");
+        index.addProperty("versionId", Installer.version());
+        index.addProperty("name", NAME26);
+        index.addProperty("summary", "Fabric, Quilt and NeoForge mods together on Minecraft " + MC26);
+        index.add("files", new com.google.gson.JsonArray());
+        JsonObject deps = new JsonObject();
+        deps.addProperty("minecraft", MC26);
+        deps.addProperty("neoforge", NEOFORGE26);
+        index.add("dependencies", deps);
+        Files.createDirectories(out.toAbsolutePath().getParent());
+        try (OutputStream fo = Files.newOutputStream(out); ZipOutputStream z = new ZipOutputStream(fo)) {
+            z.putNextEntry(new ZipEntry("modrinth.index.json"));
+            z.write(GSON.toJson(index).getBytes(StandardCharsets.UTF_8));
+            z.closeEntry();
+            z.putNextEntry(new ZipEntry("overrides/mods/omniloader-26.1.jar"));
+            z.write(loaderJar26());
+            z.closeEntry();
+            z.putNextEntry(new ZipEntry("overrides/icon.png"));
+            z.write(icon(128));
+            z.closeEntry();
+        }
+        log.accept("Made the Modrinth modpack file " + out);
+        return out;
+    }
+
     /** Writes a Modrinth modpack file. The Modrinth App (and Prism) can import it with a double-click. */
     public Path mrpack(Path out) throws IOException {
         JsonObject index = new JsonObject();
@@ -313,7 +419,9 @@ public final class Install {
     // ------------------------------------------------------------------ NeoForge
 
     /** Downloads NeoForge's official installer and runs it. If its quiet mode fails, opens its own window instead. */
-    void installNeoForge(Path dir, String mode) throws Exception {
+    void installNeoForge(Path dir, String mode) throws Exception { installNeoForge(dir, mode, NEOFORGE); }
+
+    void installNeoForge(Path dir, String mode, String NEOFORGE) throws Exception {
         String base = "https://maven.neoforged.net/releases/net/neoforged/neoforge/" + NEOFORGE + "/neoforge-" + NEOFORGE + "-installer.jar";
         Path jar = Files.createTempFile("neoforge-installer", ".jar");
         log.accept("Downloading NeoForge " + NEOFORGE + "...");

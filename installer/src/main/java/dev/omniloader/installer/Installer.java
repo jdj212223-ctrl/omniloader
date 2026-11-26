@@ -31,19 +31,23 @@ public final class Installer {
 
     private static void cli(String[] a) throws Exception {
         Install in = new Install(System.out::println);
-        boolean neo = true;
-        for (String s : a) if (s.equals("--no-neoforge")) neo = false;
+        boolean neo = true, v26 = false;
+        for (int i = 0; i < a.length; i++) {
+            if (a[i].equals("--no-neoforge")) neo = false;
+            if (a[i].equals("--mc") && i + 1 < a.length) v26 = a[i + 1].startsWith("26");
+        }
         for (int i = 0; i < a.length; i++) {
             String next = i + 1 < a.length && !a[i + 1].startsWith("--") ? a[i + 1] : null;
             switch (a[i]) {
-                case "--official" -> in.official(next != null ? Path.of(next) : Install.officialDir(), neo);
-                case "--prism" -> in.prism(next != null ? Path.of(next) : Install.prismDir());
-                case "--mrpack" -> in.mrpack(Path.of(next != null ? next : "Omniloader.mrpack"));
+                case "--official" -> { if (v26) in.official26(next != null ? Path.of(next) : Install.officialDir(), neo); else in.official(next != null ? Path.of(next) : Install.officialDir(), neo); }
+                case "--prism" -> { if (v26) in.prism26(next != null ? Path.of(next) : Install.prismDir()); else in.prism(next != null ? Path.of(next) : Install.prismDir()); }
+                case "--mrpack" -> { if (v26) in.mrpack26(Path.of(next != null ? next : "Omniloader-26.1.2.mrpack")); else in.mrpack(Path.of(next != null ? next : "Omniloader.mrpack")); }
                 case "--server" -> in.server(Path.of(next != null ? next : "server"), neo);
                 case "--write-icon" -> Files.write(Path.of(next), Install.icon(Integer.parseInt(a[i + 2])));
                 case "--snapshot" -> snapshot(Path.of(next));
                 case "--help" -> System.out.println("""
                         Omniloader installer %s
+                          --mc 26.1.2                  set up Minecraft 26.1.2 instead of 1.21.1 (put it first)
                           --official [minecraft dir]   add a profile to the official Minecraft Launcher
                           --prism [prism dir]          add an instance to Prism Launcher
                           --mrpack <file>              write a Modrinth modpack (.mrpack)
@@ -88,7 +92,7 @@ public final class Installer {
         JPanel head = new JPanel(new BorderLayout(14, 0));
         try { head.add(new JLabel(new ImageIcon(Install.icon(72))), BorderLayout.WEST); } catch (Exception ignored) {}
         JLabel title = new JLabel("<html><span style='font-size:18pt'><b>Omniloader</b></span><br>"
-                + "Play <b>Fabric</b>, <b>Quilt</b>, <b>Forge</b> and <b>NeoForge</b> mods together in Minecraft " + Install.MC + ".</html>");
+                + "Play <b>Fabric</b>, <b>Quilt</b>, <b>Forge</b> and <b>NeoForge</b> mods together in Minecraft " + Install.MC + " and " + Install.MC26 + ".</html>");
         head.add(title, BorderLayout.CENTER);
         root.add(head, BorderLayout.NORTH);
 
@@ -96,7 +100,11 @@ public final class Installer {
         JCheckBox official = box("Minecraft Launcher (the official one)", found.contains("official"));
         JCheckBox prism = box("Prism Launcher", found.contains("prism"));
         JCheckBox modrinth = box("Modrinth App", found.contains("modrinth"));
+        JComboBox<String> mcVersion = new JComboBox<>(new String[]{
+                "Minecraft " + Install.MC + "  (Omniloader's own engine)", "Minecraft " + Install.MC26 + "  (on NeoForge " + Install.MC26 + ")"});
         JPanel choices = new JPanel(new GridLayout(0, 1, 0, 4));
+        choices.add(new JLabel("Minecraft version:"));
+        choices.add(mcVersion);
         choices.add(new JLabel("Add Omniloader to:"));
         choices.add(official); choices.add(prism); choices.add(modrinth);
 
@@ -120,14 +128,15 @@ public final class Installer {
         go.addActionListener(e -> {
             go.setEnabled(false);
             Install in = new Install(s -> SwingUtilities.invokeLater(() -> log.append(s + "\n")));
+            boolean v26 = mcVersion.getSelectedIndex() == 1;
             new Thread(() -> {
                 boolean ok = true;
                 try {
-                    if (official.isSelected()) modsFolders.add(in.official(Install.officialDir(), true));
-                    if (prism.isSelected()) modsFolders.add(in.prism(Install.prismDir()));
+                    if (official.isSelected()) modsFolders.add(v26 ? in.official26(Install.officialDir(), true) : in.official(Install.officialDir(), true));
+                    if (prism.isSelected()) modsFolders.add(v26 ? in.prism26(Install.prismDir()) : in.prism(Install.prismDir()));
                     if (modrinth.isSelected()) {
-                        Path pack = Install.home().resolve("Downloads").resolve("Omniloader.mrpack");
-                        in.mrpack(pack);
+                        Path pack = Install.home().resolve("Downloads").resolve(v26 ? "Omniloader-26.1.2.mrpack" : "Omniloader.mrpack");
+                        if (v26) in.mrpack26(pack); else in.mrpack(pack);
                         if (Install.mac()) new ProcessBuilder("open", "-a", "Modrinth App", pack.toString()).start();
                         else Desktop.getDesktop().open(pack.toFile());
                         SwingUtilities.invokeLater(() -> log.append("The Modrinth App will ask you to install the \"Omniloader\" pack: say yes.\n"));
