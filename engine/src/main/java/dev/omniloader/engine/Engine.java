@@ -54,7 +54,7 @@ public final class Engine {
 
         // Full mode (Fabric + Quilt + Forge + NeoForge) whenever NeoForge's API files are around
         if (!Boolean.getBoolean("omniloader.pure")) {
-            NeoBoot.GameFiles neo = NeoBoot.locate(client);
+            NeoBoot.GameFiles neo = NeoApiFiles.ensure(client);
             if (neo != null) { NeoBoot.launch(neo, mainClass); return; }
             log("NeoForge's API files not found: starting in Fabric/Quilt-only mode");
         }

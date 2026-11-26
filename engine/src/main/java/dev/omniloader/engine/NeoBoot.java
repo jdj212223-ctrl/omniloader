@@ -59,9 +59,8 @@ final class NeoBoot {
     private NeoBoot() {}
 
     /** Finds NeoForge's files in the launcher's library folder (or as given with -Domniloader.neo.*). */
-    static GameFiles locate(boolean client) {
+    static GameFiles locate(boolean client, Path lib) {
         String side = client ? "client" : "server";
-        Path lib = System.getProperty("libraryDirectory") != null ? Path.of(System.getProperty("libraryDirectory")) : Engine.gameDir.resolve("libraries");
         Path patched = prop("omniloader.neo.patched", lib.resolve("net/neoforged/neoforge/" + NEO + "/neoforge-" + NEO + "-" + side + ".jar"));
         Path universal = prop("omniloader.neo.universal", lib.resolve("net/neoforged/neoforge/" + NEO + "/neoforge-" + NEO + "-universal.jar"));
         Path game = prop("omniloader.neo.game", lib.resolve("net/minecraft/" + side + "/" + MC + "-" + NEOFORM + "/" + side + "-" + MC + "-" + NEOFORM + "-srg.jar"));
@@ -170,6 +169,10 @@ final class NeoBoot {
         try {
             boolean fabric, quilt, neo, forge;
             try (ZipFile z = new ZipFile(jar.toFile())) {
+                if (z.getEntry("dev/omniloader/loader/OmniLocator.class") != null) {
+                    Engine.log("Ignoring " + jar.getFileName() + ": that's the older NeoForge-based Omniloader, not needed here");
+                    return;
+                }
                 fabric = z.getEntry("fabric.mod.json") != null;
                 quilt = z.getEntry("quilt.mod.json") != null;
                 neo = z.getEntry("META-INF/neoforge.mods.toml") != null;

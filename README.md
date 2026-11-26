@@ -31,14 +31,15 @@ Every change is built and released there automatically by GitHub Actions.
      isn't signed with a paid Apple certificate. Right-click the app, choose **Open**, then **Open** again.
    - **Windows / Linux:** download `omniloader-installer.jar` and double-click it (needs Java 17 or newer).
 3. Tick the launchers you use and press **Install**:
-   - **Minecraft Launcher:** installs Omniloader as its own game version (**omniloader-1.21.1**, built on
-     NeoForge's engine) and adds a profile *Omniloader 1.21.1 (Fabric, Quilt, Forge, NeoForge)* with its own game
+   - **Minecraft Launcher:** installs Omniloader as its own game version (**omniloader-1.21.1**, plain Minecraft +
+     Omniloader's own engine, no NeoForge loader) and adds a profile *Omniloader 1.21.1 (Fabric, Quilt, Forge, NeoForge)* with its own game
      folder. Your other profiles and worlds aren't touched, and a backup of the launcher settings is saved first.
-   - **Prism Launcher:** adds an instance called *Omniloader* with Omniloader as a loader component
-     (next to Minecraft and NeoForge in its version list).
+   - **Prism Launcher:** adds an instance called *Omniloader*: just **Minecraft + Omniloader** in its version list.
+     Omniloader's own engine is the loader. (For NeoForge and Forge mods it uses NeoForge's API files as a library;
+     the first start prepares them once if your Prism never installed NeoForge.)
    - **Modrinth App:** makes `Omniloader.mrpack` in your Downloads folder and opens it in the
      Modrinth App, which asks you to install it. (The Modrinth App can't add new loaders, so there
-     Omniloader runs as a jar in the mods folder instead. Same features.)
+     Omniloader runs as a jar in the mods folder on top of NeoForge instead. Same mods work.)
 4. Press **Open mods folder** and drop in your Fabric, Quilt and NeoForge mods for 1.21.1.
 5. Pick the Omniloader profile in your launcher and press **Play**.
 

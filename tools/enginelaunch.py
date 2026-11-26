@@ -42,6 +42,8 @@ for lib in v['libraries']:
         p = os.path.join(libdir, g.replace('.', '/'), a, ver, f'{a}-{ver}.jar')
     if os.path.isfile(p) and p not in cp: cp.append(p)
 cp.insert(0, os.path.abspath(engine))
+if os.environ.get('OMNI_LIKE_PRISM') == '1':   # like Prism / the Minecraft Launcher: plain game jar on the class path, no library hint
+    cp.append(os.path.join(meta, 'versions', '1.21.1-0.16.4', '1.21.1-0.16.4.jar'))
 game_jar = os.path.join(vdir, version + '.jar')   # vanilla client jar; NOT on the class path: Omniloader loads it itself
 os.makedirs(game_dir, exist_ok=True)
 game = ['--username', 'Dev', '--version', 'omniloader-engine', '--gameDir', game_dir, '--assetsDir', os.path.join(meta, 'assets'),
@@ -52,5 +54,5 @@ if server: game = ['--nogui']
 import shlex
 game += shlex.split(os.environ.get('OMNI_GAME_ARGS', ''))   # e.g. --quickPlaySingleplayer "My World"
 cmd = [java, '-Xmx3G'] + ([] if server else ['-XstartOnFirstThread']) + [ '-Djava.library.path=' + natives, '-Dorg.lwjgl.system.SharedLibraryExtractPath=' + natives,
-       '-Domniloader.gameJar=' + game_jar, '-DlibraryDirectory=' + libdir] + extra + ['-cp', os.pathsep.join(cp), 'dev.omniloader.engine.ServerMain' if server else 'dev.omniloader.engine.ClientMain'] + game
+       ] + ([] if os.environ.get('OMNI_LIKE_PRISM') == '1' else ['-Domniloader.gameJar=' + game_jar, '-DlibraryDirectory=' + libdir]) + extra + ['-cp', os.pathsep.join(cp), 'dev.omniloader.engine.ServerMain' if server else 'dev.omniloader.engine.ClientMain'] + game
 sys.exit(subprocess.call(cmd, cwd=game_dir))
