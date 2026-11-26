@@ -35,6 +35,11 @@ public final class Platform {
     }
 
     /** Forge-style events for Forge mods (only called when Forge mods are running). */
+    /** One mod menu for all mods (client only). */
+    public static void initModMenu(net.neoforged.bus.api.IEventBus modBus) {
+        // not on this version yet
+    }
+
     public static void initForge() {
         // Forge mods are not supported on this edition.
     }

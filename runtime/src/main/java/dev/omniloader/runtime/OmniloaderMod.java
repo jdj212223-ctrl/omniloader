@@ -35,6 +35,7 @@ public final class OmniloaderMod {
 
         // Fabric API stand-ins: connect Fabric's events to NeoForge's.
         Platform.initFabricApi(modBus);
+        if (Platform.isClient()) Platform.initModMenu(modBus);
 
         run("preLaunch", "pre_launch");
         // NeoForge mods adapted from another Minecraft version / newer Java: start the ones that fit.

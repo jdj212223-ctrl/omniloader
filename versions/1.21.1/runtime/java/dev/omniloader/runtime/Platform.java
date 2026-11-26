@@ -34,6 +34,11 @@ public final class Platform {
     }
 
     /** Forge-style events for Forge mods (only called when Forge mods are running). */
+    /** One mod menu for all mods (client only). */
+    public static void initModMenu(net.neoforged.bus.api.IEventBus modBus) {
+        dev.omniloader.runtime.ModMenuBridge.init(modBus);
+    }
+
     public static void initForge() {
         dev.omniloader.runtime.forge.ForgeBridge.init();
     }
